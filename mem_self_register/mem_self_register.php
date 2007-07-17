@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_self_register';
 
-$plugin['version'] = '0.8.3';
+$plugin['version'] = '0.8.4b';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'User self registration. Read the help to install.';
@@ -188,8 +188,20 @@ p. This tag will output the values of the user's profile.
 
 p. Tag Attributes:
 
-* *var* -- Specifies the profile value name to output. Supported values are "RealName","email", and "new_pass".
+* *var* -- Specifies the profile value name to output. Supported values are "user_id", "user", "RealName", "email", and any other db field.
+* *form* -- A form containing other tags to parse.
+* *userid* -- If specified, the profile information for the given user_id will be fetched.
+* *user* -- If specified, the profile information for the user with the given name will be fetched.
 
+p. Example for non logged in user
+<code><txp:mem_profile user="jdoe">
+	The email address for <txp:mem_profile var="RealName" /> is <txp:mem_profile var="email" />.
+	<txp:else />
+		I'm sorry, but we do not have a record for this user.
+</txp:mem_profile></code>
+
+p. Example for logged in user
+<code>Welcome back <txp:mem_profile var="RealName" /></code>
 
 # --- END PLUGIN HELP ---
 <?php
@@ -1053,20 +1065,53 @@ function mem_user_edit_form($atts, $thing)
 	return doTag($out,$wraptag,$class);
 }
 
-function mem_profile($atts)
+function mem_profile($atts, $body='')
 {
 	global $mem_profile,$txp_user,$ign_user;
 	
 	if (isset($ign_user)) $txp_user = $ign_user;
 	
-	extract($atts);
-	if (!is_array($mem_profile) && $txp_user)
-		$mem_profile = safe_row('*',mem_get_user_table_name(),"name = '{$txp_user}'");
+	extract(lAtts(array(
+		'user'		=> '',
+		'userid'	=> '',
+		'var'			=> 'RealName',
+		'form'		=> ''
+	),$atts));
+
+	if (empty($user) && empty($userid)) {
+		// use the old method
+		if (!is_array($mem_profile) && $txp_user)
+			$mem_profile = safe_row('*',mem_get_user_table_name(),"name = '". doSlash($txp_user)."'");
+	} else {
+		$mem_profile = (is_array($mem_profile) ? $mem_profile : array());
+		
+		// look up a potentially new user
+		if (!empty($user)) {
+			if (!array_key_exists('name', $mem_profile) || strcmp($mem_profile['name'],$user)!=0)
+				$mem_profile = safe_row('*',mem_get_user_table_name(),"name = '". doSlash($user)."'");
+		}
+		
+		if (!empty($userid) && is_numeric($userid)) {
+			if (!array_key_exists('user_id', $mem_profile) || strcmp($mem_profile['user_id'],$userid)!=0)
+				$mem_profile = safe_row('*',mem_get_user_table_name(),"user_id = ". doSlash($userid));
+		}
+	}
+
+	$out = '';
+
+	if (empty($form) && empty($body)) {
+		if ($mem_profile)
+			$out = array_key_exists($var,$mem_profile) ? $mem_profile[$var] : '';
+	} else {
+		$thing = empty($body) ? fetch_form($form) : $body;
+		
+		$out = parse(EvalElse($thing, !empty($mem_profile)));
+	}
 	
-	if ($mem_profile)
-		return array_key_exists($var,$mem_profile) ? $mem_profile[$var] : '';
-	return '';
+	return $out;
 }
+
+
 function mem_submit($atts)
 {
 	extract($atts);
