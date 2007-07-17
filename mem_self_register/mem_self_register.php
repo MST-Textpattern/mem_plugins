@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_self_register';
 
-$plugin['version'] = '0.8.2';
+$plugin['version'] = '0.8.3';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'User self registration. Read the help to install.';
@@ -680,7 +680,7 @@ function mem_self_register_form($atts,$thing='')
 			$Form = str_replace('<txp:mem_'.$a.' />',$b,$Form);
 		}
 	
-		$action_url = $_SERVER['REQUEST_URI'];
+		$action_url = @$_SERVER['REQUEST_URI'];
 		$qs = strpos($action_url,'?');
 		if ($qs) $action_url = substr($action_url, 0, $qs);
 	
