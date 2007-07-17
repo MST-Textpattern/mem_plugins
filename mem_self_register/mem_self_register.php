@@ -256,10 +256,11 @@ if (!function_exists('mem_get_pref')) {
 			$pref_cache[$name] = false;			
 		}
 
-		if (!empty($val) && in_array($val,$pref_cache[$name]))
+		if (!empty($val) && array_key_exists($val,$pref_cache[$name])) {
 			return $pref_cache[$name][$val];
-		else
+		} else {
 			return $pref_cache[$name];
+		}
 	}
 }
 
@@ -341,9 +342,9 @@ $mem_self = array(
 				'email_message'		=>	''				
 			);
 
-$mem_self['admin_email'] = mem_get_pref('mem_self_admin_email','val'); //safe_field('val','txp_prefs',"name='mem_self_admin_email'");
-$mem_self['admin_name'] = mem_get_pref('mem_self_admin_name','val'); //safe_field('val','txp_prefs',"name='mem_self_admin_name'");
-$mem_self['new_user_priv'] = mem_get_pref('mem_self_new_user_priv','val'); //safe_field('val','txp_prefs',"name='mem_self_new_user_priv'");
+$mem_self['admin_email'] = mem_get_pref('mem_self_admin_email','val');
+$mem_self['admin_name'] = mem_get_pref('mem_self_admin_name','val');
+$mem_self['new_user_priv'] = mem_get_pref('mem_self_new_user_priv','val');
 
 if ( @txpinterface == 'admin' ) {
 	register_callback('mem_self_register','self-reg','', 1);
@@ -762,7 +763,7 @@ function mem_self_register_save()
 	$mem_profile['email'] = $email = trim($email);
 	$mem_profile['name'] = $username = trim($username);
 	$mem_profile['privs'] = $new_user_priv;
-
+	
 	$xtra_columns = mem_get_extra_user_columns();
 	
 	foreach($xtra_columns as $c) {
