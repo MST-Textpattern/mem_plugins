@@ -24,7 +24,7 @@ h2. User Self Registration
 
 h3. Installation
 
-p. "Start Install Wizard":index.php?event=self-reg&step=preinstall&area=admin
+p. "Start Install Wizard":./index.php?event=self-reg&step=preinstall&area=admin
 
 h3. Summary
 
@@ -422,7 +422,7 @@ if ( @txpinterface == 'admin' ) {
 		$log = array();
 
 		if (!($rs=safe_field('val,html','txp_prefs',"name='mem_self_use_ign_db'"))) {
-			if ( mem_set_pref('mem_self_use_ign_db',$use_ign_db,'self_reg',1,'yesnoradio')) {
+			if ( mem_set_pref('mem_self_use_ign_db',$use_ign_db,'self_reg',1,0,'yesnoradio')) {
 				$log[] = "Added pref 'mem_self_use_ign_db'";
 			} else {
 				$log[] = "Failed to add pref 'mem_self_use_ign_db'. " . mysql_error();
@@ -479,7 +479,7 @@ if ( @txpinterface == 'admin' ) {
 			$log[] = "Pref 'mem_self_admin_name' is already installed. Current value is '{$rs}'.";
 		}
 		if (($rs=safe_field('val,html','txp_prefs',"name='mem_self_new_user_priv'")) === false) {
-			if ( mem_set_pref('mem_self_new_user_priv',$new_user_priv,'self_reg',1,'priv_levels')) {
+			if ( mem_set_pref('mem_self_new_user_priv',$new_user_priv,'self_reg',1,0,'priv_levels')) {
 				$log[] = "Added pref 'mem_self_new_user_priv' with value of '{$new_user_priv}'";
 				$mem_self['new_user_priv'] = $new_user_priv;
 			} else {
