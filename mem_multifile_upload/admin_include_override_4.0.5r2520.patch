@@ -1,0 +1,13 @@
+Index: textpattern/index.php
+===================================================================
+--- textpattern/index.php	(revision 2520)
++++ textpattern/index.php	(working copy)
+@@ -101,7 +101,7 @@
+ 
+ 		$inc = txpath . '/include/txp_'.$event.'.php';
+ 		if (is_readable($inc))
+-			include($inc);
++			include_once($inc);
+ 	
+ 		callback_event($event, $step, 0);
+ 
