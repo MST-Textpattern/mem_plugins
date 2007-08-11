@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation_image';
 
-$plugin['version'] = '0.4.8';
+$plugin['version'] = '0.4.9';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Moderation plugin that allows user to submit images.';
@@ -183,7 +183,9 @@ function modimg_form($atts,$thing='')
 	extract(lAtts(array(
 		'isize'		=> 25,
 		'form'		=> '',
-		'successform'	=> ''
+		'successform'	=> '',
+		'maxfilesize' => '',
+		'accept' => ''
 	),$atts));
 
 	extract(gpsa(array('modid','action','event','step')));
@@ -229,7 +231,10 @@ function modimg_form($atts,$thing='')
 		$qs = strpos($action_url,'?');
 		if ($qs) $action_url = substr($action_url, 0, $qs);
 
-		$out =	n.n."<form enctype='multipart/form-data' action='{$action_url}' method='post'>" .
+		$accept = (!empty($accept) ? ' accept="'.$accept.'"' : '');
+
+		$out =	n.n."<form enctype='multipart/form-data' action='{$action_url}' method='post'{$accept}>" .
+				(!empty($maxfilesize) && is_integer($maxfilesize) ? hInput('MAX_FILE_SIZE', $maxfilesize) : '') .
 				eInput('image_moderate') .
 				sInput( $step=='image_edit' ? 'image_update' : 'image_save' );
 		
