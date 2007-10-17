@@ -8,7 +8,7 @@
 // Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation';
 
-$plugin['version'] = '0.4.8';
+$plugin['version'] = '0.4.9';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin adds a generic moderation queue to Textpattern. A plugin can extend the moderation queue to support any type of content.';
@@ -27,7 +27,7 @@ p. This plugin adds a generic moderation queue to Textpattern. A plugin can exte
 
 h1. Installation
 
-p. "Start Install Wizard":index.php?event=moderate&step=preinstall
+p. "Start Install Wizard":./index.php?event=moderate&step=preinstall
 
 h1. Tag List (with arguments)
 

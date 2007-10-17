@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation_article';
 
-$plugin['version'] = '0.4.8';
+$plugin['version'] = '0.4.9';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Moderation plugin that allows articles to be submitted to the moderation queue.';
@@ -28,7 +28,7 @@ h1. Installation
 
 p. This plugin requires plugins mem_moderation and mem_admin_parse to be installed and enabled to function.
 
-p. "Start Install Wizard":index.php?event=article_moderate&step=preinstall
+p. "Start Install Wizard":./index.php?event=article_moderate&step=preinstall
 
 h1. Tag List (with arguments)
 

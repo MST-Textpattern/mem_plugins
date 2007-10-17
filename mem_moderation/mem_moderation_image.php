@@ -28,7 +28,7 @@ h1. Installation
 
 p. This plugin requires plugins mem_moderation and mem_admin_parse to be installed and enabled to function.
 
-p. "Start Install Wizard":index.php?event=image_moderate&step=preinstall
+p. "Start Install Wizard":./index.php?event=image_moderate&step=preinstall
 
 
 # --- END PLUGIN HELP ---
