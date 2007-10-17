@@ -571,7 +571,7 @@ function moderate_list($message="")
 	if(PUBLISHERS_BYPASS_QUEUE_DELAY) {
 		$rs = safe_rows_start(
 			"txp_moderation.*",
-			"txp_moderation`, `txp_users",
+			"txp_moderation, txp_users",
 			" txp_moderation.user=txp_users.name AND (DATE_SUB( NOW(), INTERVAL ". QUEUE_SUBMISSION_DELAY ." DAY ) > txp_moderation.submitted OR txp_users.privs = 1) order by txp_moderation.{$sort} $dir limit $offset,$limit"
 		);
 	} else {
