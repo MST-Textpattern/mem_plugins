@@ -232,14 +232,13 @@ if (!function_exists('mem_set_pref')) {
 		extract(doSlash($args));
 		
 		return safe_upsert('txp_prefs', "
-			name	= '$name',
 			val		= '$val',
 			event	= '$event',
 			html	= '$html',
 			type	= '$type',
 			position	= '$position',
 			prefs_id	= 1",
-			"name like '$name'");
+			"name = '$name'",1);
 	}
 }
 
