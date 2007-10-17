@@ -238,7 +238,7 @@ if (!function_exists('mem_set_pref')) {
 			type	= '$type',
 			position	= '$position',
 			prefs_id	= 1",
-			"name = '$name'",1);
+			"name = '$name'");
 	}
 }
 
