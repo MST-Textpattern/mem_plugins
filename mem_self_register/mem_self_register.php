@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_self_register';
 
-$plugin['version'] = '0.8.4b';
+$plugin['version'] = '0.8.5';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'User self registration. Read the help to install.';
@@ -231,26 +231,15 @@ if (!function_exists('mem_set_pref')) {
 
 		extract(doSlash($args));
 		
-    	if (!safe_row("*", 'txp_prefs', "name = '$name'") ) {
-        	return safe_insert('txp_prefs', "
-				name  = '$name',
-				val   = '$val',
-				event = '$event',
-				html  = '$html',
-				type  = '$type',
-				position = '$position',
-				prefs_id = 1"
-			);
-    	} else {
-        	return safe_update(	'txp_prefs', "
-	        						val   = '$val', 
-	        						event = '$event', 
-	        						html  = '$html',
-	        						type  = '$type',
-	        						position = '$position'",
-        						"name like '$name'");
-    	}
-    	return false;
+		return safe_upsert('txp_prefs', "
+			name	= '$name',
+			val		= '$val',
+			event	= '$event',
+			html	= '$html',
+			type	= '$type',
+			position	= '$position',
+			prefs_id	= 1",
+			"name like '$name'");
 	}
 }
 
@@ -294,22 +283,62 @@ if (!is_array($mem_self_lang))
 		'log_in_at'			=>	'Log in at',
 		'saved_user_profile'	=>	'Saved User Profile',
 		'user_exists'		=>	'Username already exists. Please try another name',
+		'log_added_pref'	=>	'Added pref {name}',
+		'log_pref_failed'	=>	'Failed to add pref {name}. {error}',
+		'log_pref_exists'	=>	'Pref {name} is already installed. Current value is "{value}"',
+		'log_col_added'		=>	'Added column {name} to user table {table}',
+		'log_col_failed'	=>	'Failed to add column {name} to table {table}. {error}',
+		'log_col_exists'	=>	'Table {table} already has column {name}',
+		'log_form_added'	=>	'Added form {name}',
+		'log_form_failed'	=>	'Failed to add form {name}. {error}<br>You need to manually create a form template. Here is an example.',
+		'log_form_found'	=>	'Found form {name}. Skipping installation of default form.',
+		'log_xmpl_tag'		=>	'Example tag to use in your page template.'
 	);
 }
 
-function mem_self_gTxt($name)
+define( 'MEM_SELF_PREFIX' , 'mem_self' );
+
+register_callback( 'mem_self_enumerate_strings' , 'l10n.enumerate_strings' );
+function mem_self_enumerate_strings($event , $step='' , $pre=0)
 {
 	global $mem_self_lang;
+	$r = array	(
+				'owner'		=> 'mem_self_register',			#	Change to your plugin's name
+				'prefix'	=> MEM_SELF_PREFIX,				#	Its unique string prefix
+				'lang'		=> 'en-gb',						#	The language of the initial strings.
+				'event'		=> 'public',					#	public/admin/common = which interface the strings will be loaded into
+				'strings'	=> $mem_self_lang,				#	The strings themselves.
+				);
+	return $r;
+}
+
+
+function mem_self_gTxt($what,$args = array())
+{
+	global $mem_self_lang, $textarray;
 	
-	$gtxt = gTxt($name);
+	$key = strtolower( MEM_SELF_PREFIX . '-' . $what );
 	
-	if ( strcmp($gtxt,$name) == 0 )
+	if (isset($textarray[$key]))
 	{
-		if ( array_key_exists($name,$mem_self_lang) )
-			$gtxt = $mem_self_lang[$name];
+		$str = $textarray[$key];
 	}
-	
-	return $gtxt;
+	else
+	{
+		$key = strtolower($what);
+		
+		if (isset($mem_self_lang[$key]))
+			$str = $mem_self_lang[$key];
+		elseif (isset($textarray[$key]))
+			$str = $textarray[$key];
+		else
+			$str = $what;
+	}
+
+	if( !empty($args) )
+		$str = strtr( $str , $args );
+
+	return $str;
 }
 
 global $event;
@@ -321,16 +350,19 @@ if ($event != 'admin') {
 
 	global $levels;
 
-	// copied from txp_admin.php
-	$levels = array(
-		0 => mem_self_gTxt('none'),
-		6 => mem_self_gTxt('designer'),
-		5 => mem_self_gTxt('freelancer'),
-		4 => mem_self_gTxt('staff_writer'),
-		3 => mem_self_gTxt('copy_editor'),
-		2 => mem_self_gTxt('managing_editor'),
-		1 => mem_self_gTxt('publisher')
-	);
+	if (empty($levels))
+	{
+		// copied from txp_admin.php
+		$levels = array(
+			0 => mem_self_gTxt('none'),
+			6 => mem_self_gTxt('designer'),
+			5 => mem_self_gTxt('freelancer'),
+			4 => mem_self_gTxt('staff_writer'),
+			3 => mem_self_gTxt('copy_editor'),
+			2 => mem_self_gTxt('managing_editor'),
+			1 => mem_self_gTxt('publisher')
+		);
+	}
 	
 //-------------------------------------------------------------
 	if (!function_exists('priv_levels')) {
@@ -436,15 +468,15 @@ if ( @txpinterface == 'admin' ) {
 
 		if (!($rs=safe_field('val,html','txp_prefs',"name='mem_self_use_ign_db'"))) {
 			if ( mem_set_pref('mem_self_use_ign_db',$use_ign_db,'self_reg',1,0,'yesnoradio')) {
-				$log[] = "Added pref 'mem_self_use_ign_db'";
+				$log[] = mem_self_gTxt('log_added_pref', array('{name}'=>'mem_self_use_ign_db'));
 			} else {
-				$log[] = "Failed to add pref 'mem_self_use_ign_db'. " . mysql_error();
+				$log[] = mem_self_gTxt('log_pref_failed', array('{name}'=>'mem_self_use_ign_db','{error}'=>mysql_error()));
 			}
 		} else {
 			if ($rs['html'] != 'yesnoradio') {
 				safe_update('txp_prefs',"html='yesnoradio'","name='mem_self_use_ign_db'");
 			}
-			$log[] = "Pref 'mem_self_use_ign_db' is already installed. Current value is '{$rs}'.";
+			$log[] = mem_self_gTxt('log_pref_exists', array('{name}'=>'mem_self_use_ign_db','{value}'=>$rs));
 		}
 		
 		$user_table = mem_get_user_table_name();
@@ -453,56 +485,56 @@ if ( @txpinterface == 'admin' ) {
 		if ($add_address) {
 			if (!in_array('address',$xtra_columns)) {
 				if (safe_alter($user_table,"ADD `address` VARCHAR( 128 )")) {
-					$log[] = "Added column 'address' to user table '{$user_table}'";
+					$log[] = mem_self_gTxt('log_col_added', array('{name}'=>'address','{table}'=>$user_table));
 				} else {
-					$log[] = "Failed to add column 'address' to user table '{$user_table}'. " . mysql_error();
+					$log[] = mem_self_gTxt('log_col_failed', array('{name}'=>'address','{table}'=>$user_table,'{error}'=>mysql_error()));
 				}
 			} else {
-				$log[] = "Table {$user_table} already has column 'address'";
+				$log[] = mem_self_gTxt('log_col_exists', array('{name}'=>'address','{table}'=>$user_table));
 			}
 		}
 		if ($add_phone) {
 			if (!in_array('phone',$xtra_columns)) {
 				if (safe_alter($user_table,"ADD `phone` VARCHAR( 32 )")) {
-					$log[] = "Added column 'phone' to user table '{$user_table}'";
+					$log[] = mem_self_gTxt('log_col_added', array('{name}'=>'phone','{table}'=>$user_table));
 				} else {
-					$log[] = "Failed to add column 'phone' to user table '{$user_table}'. " . mysql_error();
+					$log[] = mem_self_gTxt('log_col_failed', array('{name}'=>'phone','{table}'=>$user_table,'{error}'=>mysql_error()));
 				}
 			} else {
-				$log[] = "Table {$user_table} already has column 'phone'";
+				$log[] = mem_self_gTxt('log_col_exists', array('{name}'=>'phone','{table}'=>$user_table));
 			}
 		}
 
 		if (!($rs=safe_field('val','txp_prefs',"name='mem_self_admin_email'"))) {
 			if ( mem_set_pref('mem_self_admin_email',$admin_email,'self_reg',1)) {
-				$log[] = "Added pref 'mem_self_admin_email'";
+				$log[] = mem_self_gTxt('log_added_pref', array('{name}'=>'mem_self_admin_email'));
 			} else {
-				$log[] = "Failed to add pref 'mem_self_admin_email'. " . mysql_error();
+				$log[] = mem_self_gTxt('log_pref_failed', array('{name}'=>'mem_self_admin_email','{error}'=>mysql_error()));
 			}
 		} else {
-			$log[] = "Pref 'mem_self_admin_email' is already installed. Current value is '{$rs}'.";
+			$log[] = mem_self_gTxt('log_pref_exists', array('{name}'=>'mem_self_admin_email','{value}'=>$rs));
 		}
 		if (!($rs=safe_field('val','txp_prefs',"name='mem_self_admin_name'"))) {
 			if ( mem_set_pref('mem_self_admin_name',$admin_name,'self_reg',1)) {
-				$log[] = "Added pref 'mem_self_admin_name'";
+				$log[] = mem_self_gTxt('log_added_pref', array('{name}'=>'mem_self_admin_name'));
 			} else {
-				$log[] = "Failed to add pref 'mem_self_admin_name'. " . mysql_error();
+				$log[] = mem_self_gTxt('log_pref_failed', array('{name}'=>'mem_self_admin_name','{error}'=>mysql_error()));
 			}
 		} else {
-			$log[] = "Pref 'mem_self_admin_name' is already installed. Current value is '{$rs}'.";
+			$log[] = mem_self_gTxt('log_pref_exists', array('{name}'=>'mem_self_admin_name','{value}'=>$rs));
 		}
 		if (($rs=safe_field('val,html','txp_prefs',"name='mem_self_new_user_priv'")) === false) {
 			if ( mem_set_pref('mem_self_new_user_priv',$new_user_priv,'self_reg',1,0,'priv_levels')) {
-				$log[] = "Added pref 'mem_self_new_user_priv' with value of '{$new_user_priv}'";
+				$log[] = mem_self_gTxt('log_added_pref', array('{name}'=>'mem_self_new_user_priv'));
 				$mem_self['new_user_priv'] = $new_user_priv;
 			} else {
-				$log[] = "Failed to add pref 'mem_self_newuser_priv'. " . mysql_error();
+				$log[] = mem_self_gTxt('log_pref_failed', array('{name}'=>'mem_self_newuser_priv','{error}'=>mysql_error()));
 			}
 		} else {
 			if ($rs['html'] != 'priv_levels')
 				safe_update('txp_prefs',"html='priv_levels'","name='mem_self_new_user_priv'");
 			
-			$log[] = "Pref 'mem_self_new_user_priv' is already installed. Current value is '{$rs}'.";
+			$log[] = mem_self_gTxt('log_pref_exists', array('{name}'=>'mem_self_new_user_priv','{value}'=>$rs));
 		}
 
 		// create default registration form
@@ -532,14 +564,13 @@ EOF;
 		$form = fetch('Form','txp_form','name','self_register_form');
 		if (!$form) {
 			if (safe_insert('txp_form',"name='self_register_form',type='misc',Form='{$form_html}'")) {
-				$log[] = "Added form 'self_register_form'";
+				$log[] = mem_self_gTxt('log_form_added', array('{name}'=>'self_register_form'));
 			} else {
-				$log[] = "Failed to add form 'self_register_form'. " . mysql_error().br.
-					"You need to manually create a form template. Here is an example.".br.
+				$log[] = mem_self_gTxt('log_form_failed', array('{name}'=>'self_register_form','{error}'=>mysql_error())).br.
 					'<textpattern style="width:300px;height:150px;">'.htmlspecialchars($form_html).'</textarea>';
 			}
 		} else {
-			$log[] = "Found form 'self_register_form'. Skipping installation of default form.";
+			$log[] = mem_self_gTxt('log_form_found', array('{name}'=>'self_register_form'));
 		}
 
 		// create default successful registration form to show the user
@@ -551,14 +582,13 @@ EOF;
 		$form = fetch('Form','txp_form','name','self_register_success');
 		if (!$form) {
 			if (safe_insert('txp_form',"name='self_register_success',type='misc',Form='{$form_html}'")) {
-				$log[] = "Added form 'self_register_success'";
+				$log[] = mem_self_gTxt('log_form_added', array('{name}'=>'self_register_success'));
 			} else {
-				$log[] = "Failed to add form 'self_register_success'. " . mysql_error().br.
-					"You need to manually create a form template. Here is an example.".br.
+				$log[] = mem_self_gTxt('log_form_failed', array('{name}'=>'self_register_success','{error}'=>mysql_error())).br.
 					'<textpattern style="width:300px;height:150px;">'.htmlspecialchars($form_html).'</textarea>';
 			}
 		} else {
-			$log[] = "Found form 'self_register_success'. Skipping installation of default form.";
+			$log[] = mem_self_gTxt('log_form_found', array('{name}'=>'self_register_success'));
 		}
 		
 		// create default successful registration email form
@@ -580,18 +610,17 @@ EOF;
 		$form = fetch('Form','txp_form','name','self_register_email');
 		if (!$form) {
 			if (safe_insert('txp_form',"name='self_register_email',type='misc',Form='{$form_html}'")) {
-				$log[] = "Added form 'self_register_email'";
+				$log[] = mem_self_gTxt('log_form_added', array('{name}'=>'self_register_email'));
 			} else {
-				$log[] = "Failed to add form 'self_register_email'. " . mysql_error().br.
-					"You need to manually create a form template. Here is an example.".br.
+				$log[] = mem_self_gTxt('log_form_failed', array('{name}'=>'self_register_email','{error}'=>mysql_error())).br.
 					'<textpattern style="width:300px;height:150px;">'.htmlspecialchars($form_html).'</textarea>';
 			}
 		} else {
-			$log[] = "Found form 'self_register_form'. Skipping installation of default form.";
+			$log[] = mem_self_gTxt('log_form_found', array('{name}'=>'self_register_email'));
 		}
 		
 		$tag_help = '<txp:mem_self_register_form form="self_register_form" />';
-		$log[] = 'Example tag to use in your page template.'.br.
+		$log[] = mem_self_gTxt('log_xmpl_tag').br.
 			'<textarea style="width:400px;height:40px;">'.htmlspecialchars($tag_help).'</textarea>';
 		
 		return doWrap($log,'ul','li');
@@ -617,7 +646,7 @@ function mem_get_user_table_name() {
 // -------------------------------------------------------------
 function mem_self_register_form($atts,$thing='')
 {
-	global $txpac;
+	global $txpac,$pretext;
 
 	$namewarn = $userwarn = $emailwarn = '';
 	
@@ -625,6 +654,7 @@ function mem_self_register_form($atts,$thing='')
 
 	extract(lAtts(array(
 		'class'		=> __FUNCTION__,
+		'formclass'	=> '',
 		'form'		=> 'self_register_form',
 		'success_form'	=> 'self_register_success',
 		'email_form'	=> 'self_register_email',
@@ -694,9 +724,16 @@ function mem_self_register_form($atts,$thing='')
 	
 		$action_url = @$_SERVER['REQUEST_URI'];
 		$qs = strpos($action_url,'?');
-		if ($qs) $action_url = substr($action_url, 0, $qs);
+		if ($qs) {
+			$action_url = substr($action_url, 0, $qs) . '?';
+			
+			$action_url .= 's=' . urlencode($pretext['s']) . '&amp;' .
+				'c=' . urlencode($pretext['c']) . '&amp;' .
+				'id=' . urlencode($pretext['id']);
+		}
 	
-		$out =	n.n."<form enctype='multipart/form-data' action='{$action_url}' method='post'>" .
+		$out =	n.n."<form enctype='multipart/form-data' action='{$action_url}' ". 
+					(empty($formclass)? '' : 'class="'. $formclass.'"' )." method='post'>" .
 				eInput('self-reg') . sInput('register') . hInput('email_form',$email_form) . hInput('mem_self_register','register') .
 				parse($Form) .
 				"</form>".n;
@@ -937,6 +974,7 @@ function mem_change_pass_form($atts,$thing='')
 	
 	extract(lAtts(array(
 		'class'		=> 'mem_password_form',
+		'formclass'	=> '',
 		'wraptag'	=> '',
 		'form'		=> '',
 		'form_mail'	=> ''
@@ -983,9 +1021,14 @@ function mem_change_pass_form($atts,$thing='')
 				}
 
 				$message = parse($message);
+	
+				$emailbody = "From: {$admin_name} <{$admin_email}>\r\n"
+					."Reply-To: {$admin_email}\r\n"
+					."Content-Transfer-Encoding: 8bit\r\n"
+					."Content-Type: text/plain; charset=\"UTF-8\"\r\n";
 
 				// email password
-				if (txpMail($mem_profile['email'], "[$sitename] ".mem_self_gTxt('your_new_password'), $message))
+				if (mail($mem_profile['email'], "[$sitename] ".mem_self_gTxt('your_new_password'), $message, $emailbody))
 					$out = mem_self_gTxt('password_changed');
 				else
 					$out = mem_self_gTxt('password_change_failed');
@@ -1000,7 +1043,7 @@ function mem_change_pass_form($atts,$thing='')
 		if (empty($Form)) {
 			$Form = "<h3>Change Password</h3><div><txp:mem_password_input /><txp:mem_submit /></div>";
 		}
-		$out = 	"<form action='{$_SERVER['REQUEST_URI']}' method='post'>".
+		$out = 	"<form action='{$_SERVER['REQUEST_URI']}'". (!empty($formclass) ? ' class="'.$formclass.'"':'') ." method='post'>".
 				parse($Form).
 				eInput('mem_user_workspace').sInput('mem_change_pass').
 				"</form>";
@@ -1021,6 +1064,7 @@ function mem_user_edit_form($atts, $thing)
 
 	extract(lAtts(array(
 		'class'		=> 'mem_uedit_form',
+		'formclass'	=> '',
 		'wraptag'	=> '',
 		'form'		=> ''
 		), $atts));
@@ -1056,7 +1100,7 @@ function mem_user_edit_form($atts, $thing)
 		
 		$Form = eregi_replace('<txp:mem_message />',$message,$Form);
 
-		$out = 	"<form action='{$_SERVER['REQUEST_URI']}' method='post'>".
+		$out = 	"<form action='{$_SERVER['REQUEST_URI']}'". (!empty($formclass) ? ' class="'.$formclass.'"':'') ." method='post'>".
 				parse($Form).
 				eInput('mem_user_workspace').sInput('save_user_profile').
 				"</form>";
@@ -1185,6 +1229,7 @@ function mem_self_user_count($atts)
 	
 	return doTag($count,$wraptag,$class);
 }
+
 
 # --- END PLUGIN CODE ---
 
