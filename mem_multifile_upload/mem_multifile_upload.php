@@ -14,10 +14,10 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.1';
+$plugin['version'] = '0.2';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
-$plugin['description'] = 'This admin only plugin allows for multi file uploads in the file tab.';
+$plugin['description'] = 'This admin only plugin allows for multi file uploads in the file and image tab.';
 
 // Plugin types:
 // 0 = regular plugin; loaded on the public web side only
@@ -42,31 +42,38 @@ p. Drop "jQuery.MultiFile.js":http://www.fyneworks.com/jquery/multiple-file-uplo
 # --- BEGIN PLUGIN CODE ---
 
 	register_callback('mem_multifile_insert', 'file', 'file_insert', 1);
+	register_callback('mem_multiimage_insert', 'image', 'image_insert', 1);
 
-	global $event;
+	global $event, $txpcfg, $path_to_site, $img_dir, $prefs;
 	
-	if ($event == 'file')
+	if ($event == 'file' || $event == 'image') {
 		ob_start('mem_multifile_head');
+	}
+	
 	
 	function mem_multifile_head($buffer) 
 	{
-    $find = '</head>';
-    $replace = '';    
-		$replace .= n.t.'<script type="text/javascript" src="'.hu.'/textpattern/jquery.MultiFile.js"></script>'.n;
-    $replace .= <<<js
+		global $event;
+		
+	    $find = '</head>';
+	    $replace = '';    
+		$replace .= n.t.'<script type="text/javascript" src="'.hu.'textpattern/jquery.MultiFile.js"></script>'.n;
+		
+	    $replace .= <<<js
 <script type="text/javascript">
 <!--
 	$.extend($, {
-		MultiFile: function( o /* Object */ ){
-			return $("#file-upload").MultiFile(o);
+		MultiFile: function( o ){
+			return $(":input[@type='file']").MultiFile(o);
 		}
 	});
 //-->
 </script>
 js;
+
 		$replace .= $find;
 
-    return str_replace($find, $replace, $buffer);
+    	return str_replace($find, $replace, $buffer);
 		
 	}
 	
@@ -74,14 +81,17 @@ js;
 	{
 		global $txpcfg,$extensions,$txp_user,$file_base_path,$file_max_upload_size,$event;
 
+		extract($txpcfg);
+		
+		$e = $event;
+		
 		// this will break other plugins that try to hook the file event...oh well...
 		$event = '';
-		$inc = txpath . '/include/txp_file.php';
-		require_once($inc);
-		$event = 'file';
+		$inc = txpath . '/include/txp_'.$e.'.php';
 
-		
-		extract($txpcfg);
+		require_once($inc);
+		$event = $e;		
+
 		extract(doSlash(gpsa(array('category','permissions','description'))));
 
 		$failed_files = array();
@@ -157,6 +167,72 @@ js;
 		}
 		
 		file_list($message);
+	}
+
+
+	function mem_multiimage_insert()
+	{
+		global $txpcfg, $extensions, $txp_user, $event;
+
+		extract($txpcfg);
+
+		$e = $event;
+		if (empty($path_to_site)) {
+			$prefs = get_prefs();
+			extract($prefs);
+			$path_to_site = dirname($txpcfg['txpath']);
+		}
+		
+		// this will break other plugins that try to hook the file event...oh well...
+		$event = '';
+		$inc = txpath . '/include/txp_'.$e.'.php';
+
+		require_once($inc);
+		$event = $e;		
+
+
+		$meta = doSlash(gpsa(array('caption', 'alt', 'category')));
+
+		$img_result = image_data($_FILES['thefile'], $meta);
+
+		$failed_files = array();
+		$ok_files = array();
+
+		foreach (array_keys($_FILES) as $fkey) {
+			if ( strncmp($fkey,"thefile", 7) == 0 ) {	
+
+				$name = $_FILES[$fkey]['name'];
+				
+				if (empty($name)) { continue; }
+				
+				$img_result = image_data($_FILES[$fkey], $meta);
+
+				if (!empty($img_result)) {
+					if (is_array($img_result)) {
+						list($message, $id) = $img_result;
+						$ok_files[] = htmlspecialchars($name);
+					} else {
+						$failed_files[] = htmlspecialchars($img_result);
+					}
+				} else {
+					$ok_files[] = htmlspecialchars($name);
+				}
+			}
+		}
+
+		$message = '';
+		
+		if (count($failed_files) > 0) {
+			// could not get uploaded file
+			$message = '<b>'.gTxt('images_upload_failed') .'</b>: '. join(', ', $failed_files).' ';
+		}
+		
+		if (count($ok_files) > 0 ) {
+			$message .= '<b>'.gTxt('images_uploaded').'</b>';
+			$message .= ': ' . join(', ', $ok_files);
+		}
+		
+		image_list($message);
 	}
 
 
