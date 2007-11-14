@@ -355,7 +355,7 @@ function mem_mailhide($atts) {
 	return $out;
 }
 
-function mem_recaptcha($atts) {
+function mem_recaptcha($atts='') {
 	global $prefs, $mem_recaptcha_error;
 	
 #	extract(lAtts(array(
@@ -384,7 +384,8 @@ function mem_if_recaptcha_valid($atts,$body='') {
 																	gps('recaptcha_challenge_field'), 
 																	gps('recaptcha_response_field'));
 
-	$mem_recaptcha_error = $resp->error;
+	if (!$resp->is_valid)
+		$mem_recaptcha_error = $resp->error;
 
 	return parse(EvalElse($body, $resp->is_valid));	
 }
@@ -453,6 +454,41 @@ if (!$ran_mem_recaptcha_init) {
 	mem_recaptcha_init();
 }
 
+register_callback('mem_captcha_ask','comment.form');
+register_callback('mem_captcha_check','comment.save');
+
+function mem_recaptcha_ask($atts='')
+{
+		$nonce = getNextNonce(true);
+		$secret = getNextSecret(true);
+		if (!$nonce || !$secret)
+			return;
+		return mem_recaptcha();
+}
+
+function mem_recaptcha_check($atts='')
+{
+	global $prefs, $mem_recaptcha_error;
+	
+	$pubkey = $prefs['mem_recaptcha_publickey'];
+	$privkey = $prefs['mem_recaptcha_privatekey'];
+
+	$resp = recaptcha_check_answer(	$privkey, 
+																	$_SERVER['REMOTE_ADDR'], 
+																	gps('recaptcha_challenge_field'), 
+																	gps('recaptcha_response_field'));
+
+	if (!$resp->is_valid)
+		$mem_recaptcha_error = $resp->error;
+
+	$evaluator =& get_comment_evaluator();
+	if ($resp->is_valid)
+		$evaluator->add_estimate(VISIBLE, 1.0);
+	else {
+		$evaluator->add_estimate(RELOAD, 0.75);
+	}
+}
+	
 # --- END PLUGIN CODE ---
 
 ?>
