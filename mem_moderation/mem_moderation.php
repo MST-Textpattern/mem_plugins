@@ -8,7 +8,7 @@
 // Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation';
 
-$plugin['version'] = '0.4.9';
+$plugin['version'] = '0.4.10';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin adds a generic moderation queue to Textpattern. A plugin can extend the moderation queue to support any type of content.';
@@ -257,8 +257,8 @@ if (@txpinterface == 'admin') {
 		} else if ($step==$mod_event.'_multi_edit') {
 			
 			$selected = gps('selected');
-			$method = gps('method');
-			
+			$method = gps('edit_method');
+
 			$success = array();
 			$failed = array();
 			
@@ -266,6 +266,7 @@ if (@txpinterface == 'admin') {
 				$selected_ids = join(',',$selected);
 			
 				$rs = safe_rows("id,type",'txp_moderation',"`id` IN (". doSlash($selected_ids) .")");
+
 			} else {
 				$rs = false;
 			}
@@ -273,12 +274,15 @@ if (@txpinterface == 'admin') {
 			if ($rs) {
 				foreach($rs as $r) {
 					extract($r);
-					
+					$result = '';
+
 					if ($method=='reject')
 						$result = moderate_reject($type,$id);
 					else if ($method=='approve')
 						$result = moderate_approve($type,$id);	
-	
+					else
+						$result = 'unsupported method "'.$method."'";
+
 					if (empty($result))
 						$success[] = array('id'=>$id,'type'=>$type);
 					else
@@ -307,7 +311,7 @@ if (@txpinterface == 'admin') {
 				
 				$msg .= join(', ',$flist) . '; ';
 			}
-			
+
 			moderate_list($msg);
 		} else {
 			moderate_list($msg);
@@ -686,6 +690,8 @@ function moderate_approve($type='',$id=false)
 			remove_moderated_content($id);
 			
 		return $res;
+	} else {
+		return 'Moderation ID not found';
 	}
 }
 
@@ -705,10 +711,16 @@ function moderate_reject($type='',$id=false)
 	
 		$res = rejecter_callback($type,$decoded_data);
 
-		if ($res == '')
-			remove_moderated_content($id);
+		if ($res == '') {
+			if (remove_moderated_content($id)) {
+			} else {
+				return 'Failed to remove ID '. $id;
+			}
+		}
 		
 		return $res;
+	} else {
+		return 'Moderation ID not found';
 	}
 }
 
@@ -787,6 +799,10 @@ function submit_moderated_content($type,$email,$desc,$data)
 	$ip = $_SERVER['REMOTE_ADDR'];
 	$encoded_data = encode_content($data);
 
+	// prevent duplicate submissions for a minute
+	if (safe_count('txp_moderation', "`type` = '$type' and `user` = '$txp_user' and `desc` = '$desc' and `submitted` > (now() - INTERVAL 1 MINUTE)"))
+		return false;
+
 	$set = "`submitted` = now(),
 			`type`	= '$type',
 			`user`	= '$txp_user',
@@ -819,7 +835,7 @@ function update_moderated_content($id,$desc,$data)
 // -------------------------------------------------------------
 function remove_moderated_content($id) 
 {
-	$id = doSlash($id);
+	$id = assert_int($id);
 	return safe_delete('txp_moderation',"id='$id'");
 }
 
