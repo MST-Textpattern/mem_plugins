@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation_article';
 
-$plugin['version'] = '0.4.9';
+$plugin['version'] = '0.4.10';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Moderation plugin that allows articles to be submitted to the moderation queue.';
@@ -76,10 +76,14 @@ p. *mod_note_input* - Display a textarea field for the note (to the moderators)
 ////////////////////////////////////////////////////////////
 // Plugin 
 // Author: Michael Manfre (http://manfre.net/)
-// Revisions: 
-//
 ////////////////////////////////////////////////////////////
-global $event;
+
+// If true, the article submits with the moderator as the Author.
+// If false, the submitting user id is passed along as the author.
+define('ARTICLE_SUBMITS_WITH_MODERATOR_USER_ID', false);
+
+
+global $event, $article_delete_vars;
 
 $article_vars = array('note','user','email','modid','id',
 		'title','title_html','body','body_html','excerpt','excerpt_html','textile_excerpt','image',
@@ -87,6 +91,7 @@ $article_vars = array('note','user','email','modid','id',
 		'annotate','annotateinvite','override_form',
 		'custom_1','custom_2','custom_3','custom_4','custom_5',
 		'custom_6','custom_7','custom_8','custom_9','custom_10');
+$article_delete_vars = array('user','email','articleid','title');
 
 require_plugin('mem_moderation');
 
@@ -107,6 +112,7 @@ if ((@txpinterface=='admin' and ($event=='moderate' or $event=='article_moderate
 if (@txpinterface == 'admin') {
 	register_callback('article_moderate','article_moderate','', 1);
 	register_moderation_type('article',$article_vars,'article_presenter','article_approver','article_rejecter');
+	register_moderation_type('article-delete',$article_delete_vars,'article_presenter','article_approver','article_rejecter');
 
 	if ($event=='article_moderate') {
 		function article_moderate($event, $step) {
@@ -411,10 +417,14 @@ function mod_excerpt_html_input($atts) {
 // -------------------------------------------------------------
 	
 function article_presenter($type,$data) {
+	global $article_delete_vars;
 	
 	$out = '';
 	
-	if ($type=='article' and is_array($data)) {
+	if (!is_array($data))
+		return $out;
+	
+	if ($type=='article') {
 		extract(get_prefs());
 
 		extract(lAtts(array(
@@ -482,6 +492,15 @@ function article_presenter($type,$data) {
 		$out .= hInput('body_html',$body_html);
 		$out .= hInput('title_html',$title_html);
 
+	} else if ($type=='article-delete') {
+		extract($data);
+
+		foreach ($article_delete_vars as $v) {
+			$out .= @hInput($v, $$v);
+		}
+
+		$out .= '<div style="text-align:center;margin-bottom:1em;">The user "'. htmlspecialchars($user) .'" has requested the deletion of article <a href="./index.php?event=article&amp;step=edit&amp;ID='
+				. $articleid.'">#'. $articleid .': "'. $title .'"</a>.</div>';
 	}
 
 	return $out;
@@ -491,7 +510,10 @@ function article_approver($type,$data)
 {
 	global $txpcfg,$txp_user;
 
-	if ($type=='article' && is_array($data)) {
+	if (!is_array($data))
+		return 'invalid data';
+
+	if ($type=='article') {
 		$incoming = $data;
 		
 		extract(get_prefs());
@@ -510,6 +532,10 @@ function article_approver($type,$data)
 		$incoming = textile_main_fields($incoming, $use_textile);
 
 		extract(doSlash($incoming));
+		
+		if ( ARTICLE_SUBMITS_WITH_MODERATOR_USER_ID || !isset($user) ) {
+			$user = $txp_user;
+		}
 
 		if ($publish_now==1) {
 			$when = 'now()';
@@ -541,7 +567,7 @@ function article_approver($type,$data)
 				Status          = '$Status',
 				Posted          = $when,
 				LastMod         = now(),
-				AuthorID        = '$txp_user',
+				AuthorID        = '$user',
 				Section         = '$section',
 				Category1       = '$category1',
 				Category2       = '$category2',
@@ -586,9 +612,27 @@ function article_approver($type,$data)
 			return 'missing title, body, and excerpt';
 		}
 	}
-	else
-	{
-		return 'invalid data or type';
+	else if ($type=='article-delete') {
+		// make sure the mod is allowed to delete
+		if (!has_privs('article.delete'))
+			return 'You lack the required privileges to moderate this article.';
+
+		extract($data);
+		
+		if (isset($articleid)) {
+			$id = assert_int($articleid);
+			
+			if (safe_delete('textpattern', "ID = $id")) {
+				safe_update('txp_discuss', "visible = ".MODERATE, "parentid = {$id}");
+			} else {
+				return 'failed to delete article';
+			}
+		} else {
+			return 'invalid article id';
+		}
+	}	
+	else {
+		return "invalid type {$type}";
 	}
 }
 
@@ -637,6 +681,96 @@ function mem_gps_section($atts)
 					));
 }
 
+function mem_article_delete_sentry($atts,$thing='')
+{
+	global $txp_user,$ign_user,$mem_mod_article_delete_requested;
+	
+	extract(lAtts(array(
+		'successmsg'	=> 'Submitted request',
+		'failuremsg'	=> 'Failed to submit request',
+		'wraptag'	=> '',
+		'class'		=> ''
+	),$atts));
+	
+	if (empty($txp_user))
+		$txp_user = @$ign_user;
+	
+	$hash = gps('h');
+	$articleid = gps('articleid');
+	$request = gps('request_article_deletion');
+	
+	// get the article title for the hash
+	$title = safe_field('Title','textpattern',"ID = " . assert_int($articleid));	
+	$nhash = md5($articleid.$title);
+	
+	if ( $nhash == $hash && $request == '1' ) {
+		$mem_mod_article_delete_requested = true;
+		$data = array(
+			'articleid'	=> $articleid,
+			'title'	=> $title,
+			'user'	=> $txp_user
+			);
+
+		// prevent duplicates
+		if (!safe_count('txp_moderation',"data = '{$encoded_data}'"))
+			$res = submit_moderated_content('article-delete','','article-delete: #'.$articleid.' - '.$title,$data);
+		
+		if ($res)
+			return doTag($successmsg, $wraptag, $class);
+		else
+			return doTag($failuremsg, $wraptag, $class);
+	}
+
+	return '';
+}
+
+function mem_article_delete_link($atts,$thing='')
+{
+	global $thisarticle,$mem_mod_article_delete_requested;
+
+	if ($mem_mod_article_delete_requested === true)
+		return '';
+
+	extract(lAtts(array(
+		'text'	=> 'Request article deletion',
+		'url'	=> $_SERVER['REQUEST_URI'],
+		'mode'	=> ''
+	),$atts));
+
+	if (strpos($url,'?') === FALSE)
+		$url .= '?';
+	else
+		$url .= '&';
+
+	$url .= 'articleid='.$thisarticle['thisid'].'&request_article_deletion=1&h=' . md5($thisarticle['thisid'].$thisarticle['title']);
+
+	if ($mode == 'url_only')
+		$out = $url;
+	else if ($mode == 'url_encoded')
+		$out = urlencode($url);
+	else if ($mode == 'url_escaped')
+		$out = htmlspecialchars($url);
+	else {
+		$out = '<a href="'.htmlspecialchars($url).'">'. htmlspecialchars($text).'</a>';
+	}
+
+	return $out;
+}
+
+function mem_if_owns_article($atts,$thing='')
+{
+	global $thisarticle, $txp_user, $ign_user;
+	
+	extract(lAtts(array(
+		'useridfield'	=> 'AuthorID',
+	),$atts));
+	
+	if (empty($txp_user))
+		$txp_user = $ign_user;
+
+	$cond = is_array($thisarticle) and isset($thisarticle[$articlefield]) and $thisarticle[$articlefield] == $txp_user;
+	return EvalElse($thing,$cond);
+}
 
 # --- END PLUGIN CODE ---
 
