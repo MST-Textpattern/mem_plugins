@@ -8,7 +8,7 @@
 // Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation';
 
-$plugin['version'] = '0.5';
+$plugin['version'] = '0.5.1';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin adds a generic moderation queue to Textpattern. A plugin can extend the moderation queue to support any type of content.';
@@ -1404,6 +1404,7 @@ function mem_moderation_select_section($atts)
 	extract(lAtts(array(
 		'exclude'	=> '',
 		'sort'		=> 'name ASC',
+		'first'		=> ''
 	),$atts,0));
 	
 	if (!empty($exclude)) {
@@ -1429,6 +1430,11 @@ function mem_moderation_select_section($atts)
 	unset($atts['exclude']);
 	unset($atts['sort']);
 
+	if (!empty($first)) {
+		array_unshift($items, $first);
+		array_unshift($items, '');
+	}
+	
 	$atts['items'] = join(',', $items);
 	$atts['values'] = join(',', $values);
 	
@@ -1440,6 +1446,7 @@ function mem_moderation_select_category($atts)
 	extract(lAtts(array(
 		'root'	=> 'root',
 		'type'	=> 'article',
+		'first'	=> ''
 	),$atts,0));
 	
 	$rs = getTree($root, $type);
@@ -1456,6 +1463,11 @@ function mem_moderation_select_category($atts)
 	
 	unset($atts['root']);
 	unset($atts['type']);
+	
+	if (!empty($first)) {
+		array_unshift($items, $first);
+		array_unshift($items, '');
+	}
 	
 	$atts['items'] = join(',', $items);
 	$atts['values'] = join(',', $values);
