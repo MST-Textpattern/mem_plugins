@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation_article';
 
-$plugin['version'] = '0.4.10';
+$plugin['version'] = '0.5';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Moderation plugin that allows articles to be submitted to the moderation queue.';
@@ -82,10 +82,12 @@ p. *mod_note_input* - Display a textarea field for the note (to the moderators)
 // If false, the submitting user id is passed along as the author.
 define('ARTICLE_SUBMITS_WITH_MODERATOR_USER_ID', false);
 
+define('ARTICLE_EDIT_RESETS_TIME', false);
+
 
 global $event, $article_delete_vars;
 
-$article_vars = array('note','user','email','modid','id',
+$article_vars = array('note','user','email','modid','id','articleid',
 		'title','title_html','body','body_html','excerpt','excerpt_html','textile_excerpt','image',
 		'textile_body','keywords','status','section','category1','category2',
 		'annotate','annotateinvite','override_form',
@@ -112,6 +114,7 @@ if ((@txpinterface=='admin' and ($event=='moderate' or $event=='article_moderate
 if (@txpinterface == 'admin') {
 	register_callback('article_moderate','article_moderate','', 1);
 	register_moderation_type('article',$article_vars,'article_presenter','article_approver','article_rejecter');
+	register_moderation_type('article-edit',$article_vars,'article_presenter','article_approver','article_rejecter');
 	register_moderation_type('article-delete',$article_delete_vars,'article_presenter','article_approver','article_rejecter');
 
 	if ($event=='article_moderate') {
@@ -418,16 +421,17 @@ function mod_excerpt_html_input($atts) {
 	
 function article_presenter($type,$data) {
 	global $article_delete_vars;
-	
+
 	$out = '';
-	
+
 	if (!is_array($data))
 		return $out;
-	
-	if ($type=='article') {
-		extract(get_prefs());
 
-		extract(lAtts(array(
+	extract(get_prefs());
+
+	if ($type == 'article' || $type == 'article-edit') {
+
+		extract(@lAtts(array(
 			'user'		=> '',
 			'email'		=> '',
 			'title'		=> '',
@@ -454,7 +458,8 @@ function article_presenter($type,$data) {
 			'custom_7'	=> '',
 			'custom_8'	=> '',
 			'custom_9'	=> '',
-			'custom_10'	=> ''
+			'custom_10'	=> '',
+			'articleid'	=> 0
 		),$data));
 
 		if (empty($annotateinvite)) $annotateinvite = $comments_default_invite;
@@ -475,7 +480,7 @@ function article_presenter($type,$data) {
 				tr( fLabelCell( 'annotate' ) . tda( yesnoRadio('annotate',$annotate) ) ) .
 				tr( fLabelCell( 'annotateinvite' ) . fInputCell( 'annotateinvite', $annotateinvite, 1, 30 )) .
 				tr( fLabelCell( 'keywords' ) . fInputCell( 'keywords', $keywords, 1, 30 )) .
-				tr( fLabelCell( 'override_default_form' ) . tda(form_pop($override_form).popHelp('override_form'))) .
+				tr( fLabelCell( 'override_default_form' ) . tda(form_pop($override_form,'override-form').popHelp('override_form'))) .
 				tr( fLabelCell( 'author' ) . fInputCell( 'user', $user, 1, 30 ));
 
 		for($i=1;$i<=10;$i++) {
@@ -491,6 +496,9 @@ function article_presenter($type,$data) {
 		$out .= hInput('excerpt_html',$excerpt_html);
 		$out .= hInput('body_html',$body_html);
 		$out .= hInput('title_html',$title_html);
+
+		if ($type == 'article-edit')
+			$out .= hInput('articleid', $articleid);
 
 	} else if ($type=='article-delete') {
 		extract($data);
@@ -612,6 +620,119 @@ function article_approver($type,$data)
 			return 'missing title, body, and excerpt';
 		}
 	}
+	else if ($type=='article-edit') {
+		$incoming = $data;
+
+		if (!isset($incoming['articleid']) || empty($incoming['articleid']))
+			return 'Article id not provided.';
+
+		extract(get_prefs());
+
+		$message='';
+
+		// remap field values
+		$incoming['textile_body'] = USE_TEXTILE;
+		$incoming['textile_excerpt'] = USE_TEXTILE;
+		$incoming['Status'] = $incoming['status'];
+		$incoming['Title'] = $incoming['title'];
+		$incoming['Body'] = $incoming['body'];
+		$incoming['Excerpt'] = $incoming['excerpt'];
+
+		$oldArticle = safe_row('*','textpattern','ID = '.(int)$incoming['articleid']);
+
+		if ($oldArticle === false)
+			return 'Article '. $incoming['articleid'].' not found.';
+
+		if (! (    ($oldArticle['Status'] >= 4 and has_privs('article.edit.published'))
+				or ($oldArticle['Status'] >= 4 and $incoming['AuthorID']==$txp_user and has_privs('article.edit.own.published'))
+		    	or ($oldArticle['Status'] < 4 and has_privs('article.edit'))
+				or ($oldArticle['Status'] < 4 and $incoming['AuthorID']==$txp_user and has_privs('article.edit.own'))))
+		{
+				// Not allowed, you silly rabbit, you shouldn't even be here. 
+				// Show default editing screen.
+			return 'Access denied.';
+		}
+
+		$incoming = textile_main_fields($incoming, $use_textile);
+
+		extract(doSlash($incoming));
+		// use existing for defaults
+		extract(doSlash($oldArticle), EXTR_SKIP);
+
+		$Status = assert_int($Status);
+		$ID = assert_int($articleid);
+
+		if ( ARTICLE_SUBMITS_WITH_MODERATOR_USER_ID || !isset($user) ) {
+			$user = $txp_user;
+		}
+
+		$Annotate = (int) $Annotate;
+
+		if (!has_privs('article.publish') && $Status>=4) $Status = 3;
+
+		if(ARTICLE_EDIT_RESETS_TIME) {
+			$whenposted = ",Posted=now()"; 
+		} else {
+			$whenposted = '';
+		}
+
+		//Auto-Update custom-titles according to Title, as long as unpublished and NOT customized
+		if ( empty($url_title)
+			  || ( ($oldArticle['Status'] < 4) 
+					&& ($oldArticle['url_title'] == $url_title ) 
+					&& ($oldArticle['url_title'] == stripSpace($oldArticle['Title'],1))
+					&& ($oldArticle['Title'] != $Title)
+				 )
+		   )
+		{
+			$url_title = stripSpace($Title_plain, 1);
+		}
+
+		$Keywords = doSlash(trim(preg_replace('/( ?[\r\n\t,])+ ?/s', ',', preg_replace('/ +/', ' ', $keywords)), ', '));
+
+		$rs = safe_update("textpattern", 
+		   "Title           = '$Title',
+			Body            = '$Body',
+			Body_html       = '$Body_html',
+			Excerpt         = '$Excerpt',
+			Excerpt_html    = '$Excerpt_html',
+			Keywords        = '$Keywords',
+			Image           = '$Image',
+			Status          =  $Status,
+			LastMod         =  now(),
+			LastModID       = '$user',
+			Section         = '$Section',
+			Category1       = '$Category1',
+			Category2       = '$Category2',
+			Annotate        =  $Annotate,
+			textile_body    =  $textile_body,
+			textile_excerpt =  $textile_excerpt,
+			override_form   = '$override_form',
+			url_title       = '$url_title',
+			AnnotateInvite  = '$AnnotateInvite',
+			custom_1        = '$custom_1',
+			custom_2        = '$custom_2',
+			custom_3        = '$custom_3',
+			custom_4        = '$custom_4',
+			custom_5        = '$custom_5',
+			custom_6        = '$custom_6',
+			custom_7        = '$custom_7',
+			custom_8        = '$custom_8',
+			custom_9        = '$custom_9',
+			custom_10       = '$custom_10'
+			$whenposted",
+			"ID = $ID"
+		);
+
+		if($Status >= 4) {
+			if ($oldArticle['Status'] < 4) {
+				do_pings();	
+			}
+			update_lastmod();
+		}
+		
+		return ($rs ? '' : get_status_message($Status).check_url_title($url_title));
+	}
 	else if ($type=='article-delete') {
 		// make sure the mod is allowed to delete
 		if (!has_privs('article.delete'))
@@ -699,6 +820,9 @@ function mem_article_delete_sentry($atts,$thing='')
 	$articleid = gps('articleid');
 	$request = gps('request_article_deletion');
 	
+	if (empty($hash) || empty($articleid) || empty($request))
+		return '';
+	
 	// get the article title for the hash
 	$title = safe_field('Title','textpattern',"ID = " . assert_int($articleid));	
 	$nhash = md5($articleid.$title);
@@ -724,25 +848,39 @@ function mem_article_delete_sentry($atts,$thing='')
 	return '';
 }
 
-function mem_article_delete_link($atts,$thing='')
+function mem_article_action_link($atts,$thing='')
 {
 	global $thisarticle,$mem_mod_article_delete_requested;
 
-	if ($mem_mod_article_delete_requested === true)
-		return '';
-
 	extract(lAtts(array(
-		'text'	=> 'Request article deletion',
-		'url'	=> $_SERVER['REQUEST_URI'],
-		'mode'	=> ''
+		'action'	=> 'delete',
+		'text'	=> '',
+		'url'	=> '',
+		'mode'	=> '',
+		'prompt'	=> '',
 	),$atts));
 
-	if (strpos($url,'?') === FALSE)
-		$url .= '?';
-	else
-		$url .= '&';
+	if (empty($text)) $text = mem_moderation_gTxt($action);
+	$action = strtolower($action);
 
-	$url .= 'articleid='.$thisarticle['thisid'].'&request_article_deletion=1&h=' . md5($thisarticle['thisid'].$thisarticle['title']);
+	if (empty($url)) 
+		$url = $_SERVER['REQUEST_URI'];
+	else 
+		$url = hu.ltrim($url, '/');
+
+	$url .= (strpos($url,'?') === FALSE ? '?' : '&');
+
+	if ($action == 'delete') {
+		if (empty($prompt)) $prompt = 'Are you sure that you want to delete this article?';
+
+		if ($mem_mod_article_delete_requested === true)
+			return '';
+
+		$url .= 'articleid='.$thisarticle['thisid'].'&request_article_deletion=1&h=' . md5($thisarticle['thisid'].$thisarticle['title']);
+	}
+	else if ($action == 'edit') {
+		$url .= 'articleid='.$thisarticle['thisid'];
+	}
 
 	if ($mode == 'url_only')
 		$out = $url;
@@ -751,7 +889,9 @@ function mem_article_delete_link($atts,$thing='')
 	else if ($mode == 'url_escaped')
 		$out = htmlspecialchars($url);
 	else {
-		$out = '<a href="'.htmlspecialchars($url).'">'. htmlspecialchars($text).'</a>';
+		$out = '<a href="'.htmlspecialchars($url).
+			(!empty($prompt) ? "\" onclick=\"javascript:return confirm('{$prompt}');\"" : '').
+			'">'. htmlspecialchars($text).'</a>';
 	}
 
 	return $out;
@@ -770,6 +910,260 @@ function mem_if_owns_article($atts,$thing='')
 
 	$cond = is_array($thisarticle) and isset($thisarticle[$articlefield]) and $thisarticle[$articlefield] == $txp_user;
 	return EvalElse($thing,$cond);
+}
+
+
+function mem_custom_user_article_list($atts, $thing='')
+{
+	global $pretext, $prefs, $txpcfg,$txp_user,$ign_user;
+	
+	extract($pretext);
+	extract($prefs);
+	$customFields = getCustomFields();
+	$customlAtts = array_null(array_flip($customFields));
+
+	$userid = isset($txp_user) ? @$txp_user : @$ign_user;
+
+	//getting attributes
+	$theAtts = lAtts(array(
+		'useridfield'	=> '',
+		'form'      => 'default',
+		'limit'     => 10,
+		'offset'	=> 0,
+		'pageby'    => '',
+		'category'  => '',
+		'section'   => '',
+		'author'    => '',
+		'sort'      => '',
+		'time'      => 'past',
+		'month'		=> '',
+		'status'    => '4',
+	)+$customlAtts,$atts);
+
+	extract($theAtts);
+
+	$pageby = (empty($pageby) ? $limit : $pageby);
+
+	// treat sticky articles differently wrt search filtering, etc
+	if (!is_numeric($status))
+		$status = getStatusNum($status);
+	$issticky = ($status == 5);
+
+
+	$match = $search = '';
+	if (!$sort) $sort='Posted desc';
+
+
+	//Building query parts
+	$category  = join("','", doSlash(do_list($category)));
+	$category  = (!$category)  ? '' : " and (Category1 IN ('".$category."') or Category2 IN ('".$category."'))";
+	$section   = (!$section)   ? '' : " and Section IN ('".join("','", doSlash(do_list($section)))."')";
+	$author    = (!$author)    ? '' : " and AuthorID IN ('".join("','", doSlash(do_list($author)))."')";
+	$month     = (!$month)     ? '' : " and Posted like '".doSlash($month)."%'";
+
+	switch ($time) {
+		case 'any':
+			$time = ""; break;
+		case 'future':
+			$time = " and Posted > now()"; break;
+		default:
+			$time = " and Posted <= now()";
+	}
+
+	$custom = '';
+
+	if ($customFields) {
+		foreach($customFields as $cField) {
+			if (isset($atts[$cField]))
+				$customPairs[$cField] = $atts[$cField];
+		}
+		if(!empty($customPairs)) {
+			$custom = buildCustomSql($customFields,$customPairs);
+		}
+	}
+
+	if ($useridfield)
+	{
+		$custom .= ' and '. $useridfield ."='{$userid}' ";
+	}
+
+	$statusq = ' and Status = '.intval($status);
+
+	$where = "1=1" . $statusq. $time.
+		$category . $section . $month . $author . $custom ;
+
+	$pgoffset = $offset;
+
+	$rs = safe_rows_start("*, unix_timestamp(Posted) as uPosted".$match, 'textpattern',
+	$where.' order by '.doSlash($sort).' limit '.intval($pgoffset).', '.intval($limit));
+
+	$fname = $form;
+
+	if ($rs) {
+		$count = 0;
+
+		$articles = array();
+		while($a = nextRow($rs)) {
+			++$count;
+			populateArticleData($a);
+			global $thisarticle, $uPosted, $limit;
+			$thisarticle['is_first'] = ($count == 1);
+			$thisarticle['is_last'] = ($count == numRows($rs));
+			
+			//callback_event('article_entry','list');
+
+			if (isset($GLOBALS['thisarticle'])) {
+				$articles[] = !empty($thing) ? parse($thing) : parse_form($fname);
+
+				// sending these to paging_link(); Required?
+				$uPosted = $a['uPosted'];
+			}
+
+			unset($GLOBALS['thisarticle']);
+		}
+
+		return join('',$articles);
+	}
+}
+
+register_callback('mem_mod_article_form_defaults', 'mem_moderation_form.defaults');
+register_callback('mem_mod_article_form_display', 'mem_moderation_form.display');
+register_callback('mem_mod_article_form_submitted', 'mem_moderation_form.submit');
+
+function mem_mod_article_form_defaults()
+{
+	global $mem_moderation_default, $mem_mod_info, $mem_modarticle_info;
+	
+	extract(gpsa(array('modid','articleid')));
+	
+	if (!empty($modid)) {
+	
+		$mem_mod_info = safe_row('*','txp_moderation',"`id`='".doSlash($modid)."'");
+	
+		if ($mem_mod_info) {
+			$mem_modarticle_info = decode_content($mem_mod_info['data']);
+		}
+	}
+	else if (!empty($articleid)) {
+		$rs = safe_row('*', 'textpattern',"`id`='".doSlash($articleid)."'");
+	
+		$mem_modarticle_info = array();
+		
+		foreach($rs as $k => $v) {
+			$mem_modarticle_info[strtolower($k)] = $v;
+		}
+	}
+	
+	if (is_array($mem_modarticle_info)) {
+		foreach($mem_modarticle_info as $key => $val) {
+			$key = mem_moderation_label2name($key);
+			$mem_moderation_default[$key] = $val;
+		}
+	}
+}
+
+function mem_mod_article_form_display()
+{
+	global $mem_moderation_form, $mem_moderation_labels, $mem_moderation_values, $mem_mod_info, $mem_modarticle_info;
+
+	$out = '';
+
+	if (isset($mem_mod_info)) {
+		$out .= n.'<input type="hidden" name="modid" value="'.htmlspecialchars($mem_mod_info['id']).'" />'.
+			n.'<input type="hidden" name="type" value="'. htmlspecialchars($mem_mod_info['type']).'" />';
+
+		if ($mem_mod_info['type'] == 'article-edit' && isset($mem_modarticle_info['articleid']))
+			$out .= n.'<input type="hidden" name="articleid" value="'.$mem_modarticle_info['articleid'].'" />';
+		
+		mem_moderation_store('modid', 'modid', $mem_mod_info['id']);
+		mem_moderation_store('type', 'type', $mem_mod_info['type']);
+	}
+	else if (isset($mem_modarticle_info)) {
+		$out .= n.'<input type="hidden" name="articleid" value="'.htmlspecialchars($mem_modarticle_info['articleid']).'" />'.
+			n.'<input type="hidden" name="type" value="article" />';
+	}
+	
+	return $out;
+}
+
+function mem_mod_article_form_submitted()
+{
+	global $mem_moderation_successform, $txp_user, $ign_user, $mem_mod_info, $mem_modarticle_info;
+	
+	extract(gpsa(array('modid','step','id','articleid')));
+	$vars=array('note','user','email','articleid',
+		'title','title_html','body','body_html','excerpt','excerpt_html','textile_excerpt','image',
+		'textile_body','keywords','status','section','category1','category2',
+		'annotate','annotateinvite','override_form',
+		'custom_1','custom_2','custom_3','custom_4','custom_5',
+		'custom_6','custom_7','custom_8','custom_9','custom_10'	);
+
+	$mem_modarticle_info = gpsa($vars);
+
+	$out = '';
+	
+	$is_save = ps('mem_moderation_save');
+	$is_delete = ps('mem_moderation_delete');
+	$is_update = ps('mem_moderation_update') || ($is_save && ps('modid'));
+
+	if (isset($ign_user)) $txp_user = $ign_user;
+
+	if (!empty($articleid)) {
+		$articleid = doSlash($articleid);
+		$rs = safe_rows("*, unix_timestamp(Posted) as uPosted","textpattern","`ID` = $articleid");
+
+		if ($rs) {
+			// merge the passed in values to the existing
+			foreach($mem_modarticle_info as $key => $val) {
+				$rs[$key] = $val;
+			}
+			$rs['articleid'] = $articleid;
+			$res = submit_moderated_content('article-edit', $user_email, $mem_modarticle_info['note'], $mem_modarticle_info);
+		}
+	}
+	else {
+
+		if (!empty($modid)) $id = $modid;
+		
+		if (isset($id)) $mem_modarticle_info['id'] = $id;
+		
+		
+		if ($is_delete) {
+			if (remove_moderated_content($modid))
+				$res = mem_moderation_gTxt('article_deleted');
+			else
+				$res = mem_moderation_gTxt('article_delete_failed');
+		} 
+		else if ($is_update) {
+	
+			if (isset($mem_modarticle_info['note'])) 
+				$note = $mem_modarticle_info['note'];
+			else
+				$note = $mem_mod_info['desc'];
+	
+			if (update_moderated_content($id,$note,$mem_modarticle_info))
+				$res = mem_moderation_gTxt('article_updated');
+			else
+				$res = mem_moderation_gTxt('article_update_failed');
+		}
+		else {
+			if (!isset($user))
+				$mem_modarticle_info['user'] = $txp_user;
+				
+			$res = submit_moderated_content('article', '', $mem_modarticle_info['note'], $mem_modarticle_info);
+		}
+	}
+	
+	$mem_modarticle_info['result'] = $res;
+	
+	$successform = @fetch_form($successform);
+	
+	if (!empty($successform))
+		$out = parse($Form);
+	
+	unset($mem_modarticle_info);
+
+	return $out;
 }
 
 # --- END PLUGIN CODE ---
