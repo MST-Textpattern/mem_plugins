@@ -8,7 +8,7 @@
 // Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation';
 
-$plugin['version'] = '0.4.10';
+$plugin['version'] = '0.5';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin adds a generic moderation queue to Textpattern. A plugin can extend the moderation queue to support any type of content.';
@@ -124,7 +124,7 @@ This will insert or update a preference from the txp_prefs table and return the 
 
 // the number of days that a newly submitted item will wait 
 // before appearing in the moderation queue. 0 will disable
-define('QUEUE_SUBMISSION_DELAY', "7");
+define('QUEUE_SUBMISSION_DELAY', "0");
 
 // Specify whether users with Publisher privs will have their
 // submitted content appear immediatly in the list without 
@@ -141,6 +141,45 @@ global $mod_event;
 $mod_event = 'moderate';
 
 require_plugin('mem_admin_parse');
+// make sure ign is loaded first, if it exists
+@load_plugin('ign_password_protect');
+// might need access to ign user table
+@load_plugin('mem_self_register');
+
+// needed for MLP
+define( 'MEM_MODERATION_PREFIX' , 'mem_moderation' );
+
+global $mem_moderation_lang;
+
+if (!is_array($mem_moderation_lang))
+{
+	$mem_moderation_lang = array(
+		'form_used'	=>	'This form has already been used to submit.',
+		'form_expired'	=>	'The form has expired.',
+		'spam'	=> 'Your submission was blocked by a spam filter.',
+		'invalid_utf8'	=> 'Invalid UTF8 string for field {label}.',
+		'min_warning'	=> 'The input field {label} must be at least {min} characters long.',
+		'max_warning'	=> 'The input field {label} must be smaller than {max} characters long.',
+		'field_missing'	=> 'The field {label} is required.',
+		'invalid_email'	=> 'The email address {email} is invalid.',
+		'invalid_host'	=> 'The host {domain} is invalid.',
+		
+	);
+}
+
+register_callback( 'mem_moderation_enumerate_strings' , 'l10n.enumerate_strings' );
+function mem_moderation_enumerate_strings($event , $step='' , $pre=0)
+{
+	global $mem_self_lang;
+	$r = array	(
+				'owner'		=> 'mem_moderation',			#	Change to your plugin's name
+				'prefix'	=> MEM_MODERATION_PREFIX,				#	Its unique string prefix
+				'lang'		=> 'en-gb',						#	The language of the initial strings.
+				'event'		=> 'public',					#	public/admin/common = which interface the strings will be loaded into
+				'strings'	=> $mem_moderation_lang,		#	The strings themselves.
+				);
+	return $r;
+}
 
 
 if (!function_exists('mem_set_pref')) {
@@ -207,6 +246,25 @@ if (!function_exists('mem_get_pref')) {
 			return $pref[$field];
 
 		return false;
+	}
+}
+
+
+if (!function_exists('mem_get_user_table_name')) {
+	function mem_get_user_table_name() {
+		$use_ign_db = mem_get_pref('mem_self_use_ign_db');
+		
+		$table_name = 'txp_users';
+		
+		if ($use_ign_db) {
+			$ign_use_custom = mem_get_pref('ign_use_custom');
+			if ($ign_use_custom && $ign_use_custom['val']=='1') {
+				$ign_user_db = mem_get_pref('ign_user_db');
+				if ($ign_user_db && !empty($ign_user_db['val']))
+					$table_name = $ign_user_db['val'];
+			}
+		}
+		return $table_name;
 	}
 }
 
@@ -526,6 +584,26 @@ function mod_if_data($atts,$thing) {
 		return admin_parse(EvalElse($thing,$cond));
 	}
 }
+
+function mem_moderation_if_gps($atts,$thing)
+{
+	extract(lAtts(array(
+		'name'	=> '',
+		'value'	=> '',
+	),$atts));
+
+	$v = gps($name);
+	
+	$cond = false;
+	
+	if (empty($value))
+		$cond = !empty($v);
+	else 
+		$cond = ($v == $value);
+
+	return admin_parse(EvalElse($thing,$cond));
+}
+
 function mod_data($atts) {
 	global $mem_mod_info;
 	extract($atts);
@@ -573,10 +651,13 @@ function moderate_list($message="")
 	?	PrevNextLink($mod_event,$page+1,gTxt('next'),'next') : '';
 
 	if(PUBLISHERS_BYPASS_QUEUE_DELAY) {
+		$user_table = mem_get_user_table_name();
+		if (empty($user_table)) $user_table = 'txp_users';
+		
 		$rs = safe_rows_start(
 			"txp_moderation.*",
-			"txp_moderation, txp_users",
-			" txp_moderation.user=txp_users.name AND (DATE_SUB( NOW(), INTERVAL ". QUEUE_SUBMISSION_DELAY ." DAY ) > txp_moderation.submitted OR txp_users.privs = 1) order by txp_moderation.{$sort} $dir limit $offset,$limit"
+			"txp_moderation, {$user_table}",
+			" txp_moderation.user={$user_table}.name AND (DATE_SUB( NOW(), INTERVAL ". QUEUE_SUBMISSION_DELAY ." DAY ) > txp_moderation.submitted OR {$user_table}.privs = 1) order by txp_moderation.{$sort} $dir limit $offset,$limit"
 		);
 	} else {
 		$rs = safe_rows_start(
@@ -926,6 +1007,761 @@ function approver_callback($type,$data)
 function rejecter_callback($type,$data) 
 {
 	return moderation_callback($type,'rejecter',$data);
+}
+
+
+function mem_moderation_form($atts, $thing='')
+{
+	global $sitename, $prefs, $production_status, $mem_moderation_error, $mem_moderation_submit,
+		$mem_moderation_form, $mem_moderation_labels, $mem_moderation_values, $mem_moderation_successform, 
+		$mem_moderation_default, $mem_moderation_form_type;
+	
+	extract(mem_moderation_lAtts(array(
+		'form'		=> '',
+		'successform'	=> '',
+		'label'		=> '',
+		'type'		=> '',
+		'redirect'	=> '',
+		'show_error'	=> 1,
+		'show_input'	=> 1,
+	), $atts));
+	
+	if (empty($type)) {
+		trigger_error('Type argument not specified for mem_moderation_form tag', E_USER_WARNING);
+		
+		return '';
+	}
+	$mem_moderation_form_type = $type;
+	
+	$mem_moderation_default = array('test'=>'test');
+	callback_event('mem_moderation_form.defaults');
+	
+	unset($atts['show_error'], $atts['show_input']);
+	$mem_moderation_form_id = md5(serialize($atts).preg_replace('/[\t\s\r\n]/','',$thing));
+	$mem_moderation_submit = (ps('mem_moderation_form_id') == $mem_moderation_form_id);
+	
+	$nonce   = doSlash(ps('mem_moderation_nonce'));
+	$renonce = false;
+
+	if ($mem_moderation_submit) {
+		safe_delete('txp_discuss_nonce', 'issue_time < date_sub(now(), interval 10 minute)');
+		if ($rs = safe_row('used', 'txp_discuss_nonce', "nonce = '$nonce'"))
+		{
+			if ($rs['used'])
+			{
+				unset($mem_moderation_error);
+				$mem_moderation_error[] = mem_moderation_gTxt('form_used');
+				$renonce = true;
+				$_POST = array();
+				$_POST['mem_moderation_submit'] = TRUE;
+				$_POST['mem_moderation_form_id'] = $mem_moderation_form_id;
+				$_POST['mem_moderation_nonce'] = $nonce;
+			}
+		}
+		else
+		{
+			$mem_moderation_error[] = mem_moderation_gTxt('form_expired');
+			$renonce = true;
+		}
+	}
+	
+	if ($mem_moderation_submit and $nonce and !$renonce)
+	{
+		$mem_moderation_nonce = $nonce;
+	}
+
+	elseif (!$show_error or $show_input)
+	{
+		$mem_moderation_nonce = md5(uniqid(rand(), true));
+		safe_insert('txp_discuss_nonce', "issue_time = now(), nonce = '$mem_moderation_nonce'");
+	}
+
+	$form = ($form) ? fetch_form($form) : $thing;
+
+
+	if (empty($form))
+	{
+		$form = '
+<txp:mem_moderation_text label="'.mem_moderation_gTxt('name').'" /><br />
+<txp:mem_moderation_email /><br />'.
+'<txp:mem_moderation_textarea /><br />
+<txp:mem_moderation_submit />
+';
+	}
+
+	$form = parse($form);
+	
+	if (!$mem_moderation_submit) {
+	  # don't show errors or send mail
+	}
+	elseif (!empty($mem_moderation_error))
+	{
+		if ($show_error or !$show_input)
+		{
+			$out .= n.'<ul class="memError">';
+
+			foreach (array_unique($mem_moderation_error) as $error)
+			{
+				$out .= n.t.'<li>'.$error.'</li>';
+			}
+
+			$out .= n.'</ul>';
+
+			if (!$show_input) return $out;
+		}
+	}
+	elseif ($show_input and is_array($mem_moderation_form))
+	{
+		/// load and check spam plugins/
+//		$evaluation =& get_mem_moderation_evaluator();
+//		$clean = $evaluation->get_mem_moderation_status();
+
+		if ($clean != 0) {
+			return mem_moderation_gTxt('spam');
+		}
+
+		$result = callback_event('mem_moderation_form.submit');
+
+		safe_update('txp_discuss_nonce', "used = '1', issue_time = now()", "nonce = '$nonce'");
+		
+		if (!empty($result))
+			return $result;
+			
+		if ($redirect)
+		{
+			while (@ob_end_clean());
+			$uri = hu.ltrim($redirect,'/');
+			if (empty($_SERVER['FCGI_ROLE']) and empty($_ENV['FCGI_ROLE']))
+			{
+				txp_status_header('303 See Other');
+				header('Location: '.$uri);
+				header('Connection: close');
+				header('Content-Length: 0');
+			}
+			else
+			{
+				$uri = htmlspecialchars($uri);
+				$refresh = mem_moderation_gTxt('refresh');
+				echo <<<END
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+	<title>$sitename</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta http-equiv="refresh" content="0;url=$uri" />
+</head>
+<body>
+<a href="$uri">$refresh</a>
+</body>
+</html>
+END;
+			}
+			exit;
+		}			
+	}
+
+	if ($show_input or gps('mem_moderation_send_article'))
+	{
+		return '<form method="post"'.((!$show_error and $mem_moderation_error) ? '' : ' id="mem'.$mem_moderation_form_id.'"').' class="mem_moderationForm" action="'.htmlspecialchars(serverSet('REQUEST_URI')).'#mem'.$mem_moderation_form_id.'">'.
+			( $label ? n.'<fieldset>' : n.'<div>' ).
+			( $label ? n.'<legend>'.htmlspecialchars($label).'</legend>' : '' ).
+			$out.
+			n.'<input type="hidden" name="mem_moderation_nonce" value="'.$mem_moderation_nonce.'" />'.
+			n.'<input type="hidden" name="mem_moderation_form_id" value="'.$mem_moderation_form_id.'" />'.
+			$form.
+			callback_event('mem_moderation_form.display').
+			( $label ? (n.'</fieldset>') : (n.'</div>') ).
+			n.'</form>';
+	}
+
+	return '';
+}
+
+function mem_moderation_text($atts)
+{
+	global $mem_moderation_error, $mem_moderation_submit, $mem_moderation_default;
+
+	extract(mem_moderation_lAtts(array(
+		'break'		=> br,
+		'default'	=> '',
+		'isError'	=> '',
+		'label'		=> mem_moderation_gTxt('text'),
+		'max'		=> 100,
+		'min'		=> 0,
+		'name'		=> '',
+		'required'	=> 1,
+		'size'		=> ''
+	), $atts));
+
+	$min = intval($min);
+	$max = intval($max);
+	$size = intval($size);
+
+	if (empty($name)) $name = mem_moderation_label2name($label);
+
+	if ($mem_moderation_submit)
+	{
+		$value = trim(ps($name));
+		$utf8len = preg_match_all("/./su", $value, $utf8ar);
+		$hlabel = htmlspecialchars($label);
+
+		if (strlen($value))
+		{
+			if (!$utf8len)
+			{
+				$mem_moderation_error[] = mem_moderation_gTxt('invalid_utf8', array('{label}'=>$hlabel));
+				$isError = "errorElement";
+			}
+
+			elseif ($min and $utf8len < $min)
+			{
+				$mem_moderation_error[] = mem_moderation_gTxt('min_warning', array('{label}'=>$hlabel, '{min}'=>$min));
+				$isError = "errorElement";
+			}
+
+			elseif ($max and $utf8len > $max)
+			{
+				$mem_moderation_error[] = mem_moderation_gTxt('max_warning', array('{label}'=>$hlabel, '{max}'=>$max));
+				$isError = "errorElement";
+			}
+
+			else
+			{
+				mem_moderation_store($name, $label, $value);
+			}
+		}
+		elseif ($required)
+		{
+			$mem_moderation_error[] = mem_moderation_gTxt('field_missing', array('{label}'=>$hlabel));
+			$isError = "errorElement";
+		}
+	}
+
+	else
+	{
+		if (isset($mem_moderation_default[$name]))
+			$value = $mem_moderation_default[$name];
+		else
+			$value = $default;
+	}
+
+	$size = ($size) ? ' size="'.$size.'"' : '';
+	$maxlength = ($max) ? ' maxlength="'.$max.'"' : '';
+
+	$memRequired = $required ? 'memRequired' : '';
+
+        return '<label for="'.$name.'" class="memText '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
+		'<input type="text" id="'.$name.'" class="memText '.$memRequired.$isError.'" name="'.$name.'" value="'.htmlspecialchars($value).'"'.$size.$maxlength.' />';
+}
+
+function mem_moderation_textarea($atts)
+{
+	global $mem_moderation_error, $mem_moderation_submit, $mem_moderation_default;
+
+	extract(mem_moderation_lAtts(array(
+		'break'		=> br,
+		'cols'		=> 58,
+		'default'	=> '',
+		'isError'	=> '',
+		'label'		=> mem_moderation_gTxt('message'),
+		'max'		=> 10000,
+		'min'		=> 0,
+		'name'		=> '',
+		'required'	=> 1,
+		'rows'		=> 8
+	), $atts));
+
+	$min = intval($min);
+	$max = intval($max);
+	$cols = intval($cols);
+	$rows = intval($rows);
+
+	if (empty($name)) $name = mem_moderation_label2name($label);
+
+	if ($mem_moderation_submit)
+	{
+		$value = preg_replace('/^\s*[\r\n]/', '', rtrim(ps($name)));
+		$utf8len = preg_match_all("/./su", ltrim($value), $utf8ar);
+		$hlabel = htmlspecialchars($label);
+
+		if (strlen(ltrim($value)))
+		{
+			if (!$utf8len)
+			{
+				$mem_moderation_error[] = mem_moderation_gTxt('invalid_utf8', array('{label}'=>$hlabel));
+				$isError = "errorElement";
+			}
+
+			elseif ($min and $utf8len < $min)
+			{
+				$mem_moderation_error[] = mem_moderation_gTxt('min_warning', array('{label}'=>$hlabel, '{min}'=>$min));
+				$isError = "errorElement";
+			}
+
+			elseif ($max and $utf8len > $max)
+			{
+				$mem_moderation_error[] = mem_moderation_gTxt('max_warning', array('{label}'=>$hlabel, '{max}'=>$max));
+				$isError = "errorElement";
+			}
+
+			else
+			{
+				mem_moderation_store($name, $label, $value);
+			}
+		}
+
+		elseif ($required)
+		{
+			$mem_moderation_error[] = mem_moderation_gTxt('field_missing', array('{label}'=>$hlabel));
+			$isError = "errorElement";
+		}
+	}
+
+	else
+	{
+		if (isset($mem_moderation_default[$name]))
+			$value = $mem_moderation_default[$name];
+		else
+			$value = $default;
+	}
+
+	$memRequired = $required ? 'memRequired' : '';
+
+	return '<label for="'.$name.'" class="memTextarea '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
+		'<textarea id="'.$name.'" class="memTextarea '.$memRequired.$isError.'" name="'.$name.'" cols="'.$cols.'" rows="'.$rows.'">'.htmlspecialchars($value).'</textarea>';
+}
+
+function mem_moderation_email($atts)
+{
+	global $mem_moderation_error, $mem_moderation_submit, $mem_moderation_from, $mem_moderation_recipient, $mem_moderation_default;
+
+	extract(mem_moderation_lAtts(array(
+		'default'	=> '',
+		'isError'	=> '',
+		'label'		=> mem_moderation_gTxt('email'),
+		'max'		=> 100,
+		'min'		=> 0,
+		'name'		=> '',
+		'required'	=> 1,
+		'break'		=> br,
+		'size'		=> '',
+		'send_article'	=> 0
+	), $atts));
+
+	if (empty($name)) $name = mem_moderation_label2name($label);
+
+	$email = $mem_moderation_submit ? trim(ps($name)) : $default;
+
+	if (isset($mem_moderation_default[$name]))
+		$email = $mem_moderation_default[$name];
+
+	if ($mem_moderation_submit and strlen($email))
+	{
+		if (!is_valid_email($email))
+		{
+			$mem_moderation_error[] = mem_moderation_gTxt('invalid_email', array('{email}'=>htmlspecialchars($email)));
+			$isError = "errorElement";
+		}
+
+		else
+		{
+			preg_match("/@(.+)$/", $email, $match);
+			$domain = $match[1];
+
+			if (is_callable('checkdnsrr') and checkdnsrr('textpattern.com.','A') and !checkdnsrr($domain.'.','MX') and !checkdnsrr($domain.'.','A'))
+			{
+				$mem_moderation_error[] = mem_moderation_gTxt('invalid_host', array('{domain}'=>htmlspecialchars($domain)));
+				$isError = "errorElement";
+			}
+
+			else
+			{
+				if ($send_article) {
+					$mem_moderation_recipient = $email;
+				}
+				else {
+					$mem_moderation_from = $email;
+				}
+			}
+		}
+	}
+
+	return mem_moderation_text(array(
+		'default'	=> $email,
+		'isError'	=> $isError,
+		'label'		=> $label,
+		'max'		=> $max,
+		'min'		=> $min,
+		'name'		=> $name,
+		'required'	=> $required,
+		'break'		=> $break,
+		'size'		=> $size
+	));
+}
+
+function mem_moderation_select_section($atts)
+{
+	extract(lAtts(array(
+		'exclude'	=> '',
+		'sort'		=> 'name ASC',
+	),$atts,0));
+	
+	if (!empty($exclude)) {
+		$exclusion = array_map('trim', split(',', preg_replace('/[\r\n\t\s]+/', ' ',$exclude)));
+
+		if (count($exclusion))
+			$exclusion = join(',', quote_list($exclusion));
+	}
+
+	$where = empty($exclusion) ? '1=1' : 'name NOT IN ('.$exclusion.')';
+	
+	$sort = empty($sort) ? '' : ' ORDER BY '. doSlash($sort);
+	
+	$rs = safe_rows('name, title','txp_section',$where . $sort);
+	
+	if ($rs) {
+		foreach($rs as $r) {
+			$items[] = $r['name'];
+			$values[] = $r['title'];
+		}	
+	}
+	
+	unset($atts['exclude']);
+	unset($atts['sort']);
+
+	$atts['items'] = join(',', $items);
+	$atts['values'] = join(',', $values);
+	
+	return mem_moderation_select($atts);
+}
+
+function mem_moderation_select_category($atts)
+{
+	extract(lAtts(array(
+		'root'	=> 'root',
+		'type'	=> 'article',
+	),$atts,0));
+	
+	$rs = getTree($root, $type);
+	
+	$items = array();
+	$values = array();
+
+	if ($rs) {
+		foreach ($rs as $cat) {
+			$items[] = $cat['title'];
+			$values[] = $cat['name'];			
+		}
+	}
+	
+	unset($atts['root']);
+	unset($atts['type']);
+	
+	$atts['items'] = join(',', $items);
+	$atts['values'] = join(',', $values);
+	
+	return mem_moderation_select($atts);
+}
+
+function mem_moderation_select($atts)
+{
+	global $mem_moderation_error, $mem_moderation_submit, $mem_moderation_default;
+
+	extract(mem_moderation_lAtts(array(
+		'name'		=> '',
+		'break'		=> ' ',
+		'delimiter'	=> ',',
+		'isError'	=> '',
+		'label'		=> mem_moderation_gTxt('option'),
+		'items'		=> mem_moderation_gTxt('general_inquiry'),
+		'values'	=> '',
+		'required'	=> 1,
+		'selected'	=> ''
+	), $atts));
+
+	if (empty($name)) $name = mem_moderation_label2name($label);
+	
+	if (!empty($items) && $items[0] == '<') $items = parse($items);
+	if (!empty($values) && $values[0] == '<') $values = parse($values);
+
+	$items = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$items)));
+	$values = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$values)));
+
+	if ($mem_moderation_submit)
+	{
+		$value = trim(ps($name));
+
+		if (strlen($value))
+		{
+			if (in_array($value, $items))
+			{
+				mem_moderation_store($name, $label, $value);
+			}
+
+			else
+			{
+				$mem_moderation_error[] = mem_moderation_gTxt('invalid_value', array('{label}'=> htmlspecialchars($label), '{value}'=> htmlspecialchars($value)));
+				$isError = "errorElement";
+			}
+		}
+
+		elseif ($required)
+		{
+			$mem_moderation_error[] = mem_moderation_gTxt('field_missing', array('{label}'=> htmlspecialchars($label)));
+			$isError = "errorElement";
+		}
+	}
+	else
+	{
+		if (isset($mem_moderation_default[$name]))
+			$value = $mem_moderation_default[$name];
+		else
+			$value = $selected;
+	}
+
+	$use_values_array = (count($items) == count($values));
+
+	$out = '';
+
+	foreach ($items as $item)
+	{
+		$v = $use_values_array ? array_shift($values) : $item;
+		
+		$out .= n.t.'<option'.($v == $value ? ' selected="selected">' : '>').(strlen($item) ? htmlspecialchars($item) : ' ').'</option>';
+	}
+
+	$memRequired = $required ? 'memRequired' : '';
+
+	return '<label for="'.$name.'" class="memSelect '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
+		n.'<select id="'.$name.'" name="'.$name.'" class="memSelect '.$memRequired.$isError.'">'.
+			$out.
+		n.'</select>';
+}
+
+function mem_moderation_checkbox($atts)
+{
+	global $mem_moderation_error, $mem_moderation_submit, $mem_moderation_default;
+
+	extract(mem_moderation_lAtts(array(
+		'break'		=> ' ',
+		'checked'	=> 0,
+		'isError'	=> '',
+		'label'		=> mem_moderation_gTxt('checkbox'),
+		'name'		=> '',
+		'required'	=> 1
+	), $atts));
+
+	if (empty($name)) $name = mem_moderation_label2name($label);
+
+	if ($mem_moderation_submit)
+	{
+		$value = (bool) ps($name);
+
+		if ($required and !$value)
+		{
+			$mem_moderation_error[] = mem_moderation_gTxt('field_missing', array('{label}'=> htmlspecialchars($label)));
+			$isError = "errorElement";
+		}
+
+		else
+		{
+			mem_moderation_store($name, $label, $value ? gTxt('yes') : gTxt('no'));
+		}
+	}
+
+	else {
+		if (isset($mem_moderation_default[$name]))
+			$value = $mem_moderation_default[$name];
+		else
+			$value = $checked;
+	}
+
+	$memRequired = $required ? 'memRequired' : '';
+
+	return '<input type="checkbox" id="'.$name.'" class="memCheckbox '.$memRequired.$isError.'" name="'.$name.'"'.
+		($value ? ' checked="checked"' : '').' />'.$break.
+		'<label for="'.$name.'" class="memCheckbox '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>';
+}
+
+function mem_moderation_serverinfo($atts)
+{
+	global $mem_moderation_submit;
+
+	extract(mem_moderation_lAtts(array(
+		'label'		=> '',
+		'name'		=> ''
+	), $atts));
+
+	if (empty($name)) $name = mem_moderation_label2name($label);
+
+	if (strlen($name) and $mem_moderation_submit)
+	{
+		if (!$label) $label = $name;
+		mem_moderation_store($name, $label, serverSet($name));
+	}
+}
+
+function mem_moderation_secret($atts, $thing = '')
+{
+	global $mem_moderation_submit;
+
+	extract(mem_moderation_lAtts(array(
+		'name'	=> '',
+		'label'	=> mem_moderation_gTxt('secret'),
+		'value'	=> ''
+	), $atts));
+
+	$name = mem_moderation_label2name($name ? $name : $label);
+
+	if ($mem_moderation_submit)
+	{
+		if ($thing) $value = trim(parse($thing));
+		mem_moderation_store($name, $label, $value);
+	}
+
+	return '';
+}
+
+function mem_moderation_radio($atts)
+{
+	global $mem_moderation_error, $mem_moderation_submit, $mem_moderation_values, $mem_moderation_default;
+
+	extract(mem_moderation_lAtts(array(
+		'break'		=> ' ',
+		'checked'	=> 0,
+		'group'		=> '',
+		'label'		=> mem_moderation_gTxt('option'),
+		'name'		=> ''
+	), $atts));
+
+	static $cur_name = '';
+	static $cur_group = '';
+
+	if (!$name and !$group and !$cur_name and !$cur_group) {
+		$cur_group = mem_moderation_gTxt('radio');
+		$cur_name = $cur_group;
+	}
+	if ($group and !$name and $group != $cur_group) $name = $group;
+
+	if ($name) $cur_name = $name;
+	else $name = $cur_name;
+
+	if ($group) $cur_group = $group;
+	else $group = $cur_group;
+
+	$id   = 'q'.md5($name.'=>'.$label);
+	$name = mem_moderation_label2name($name);
+
+	if ($mem_moderation_submit)
+	{
+		$is_checked = (ps($name) == $id);
+
+		if ($is_checked or $checked and !isset($mem_moderation_values[$name]))
+		{
+			mem_moderation_store($name, $group, $label);
+		}
+	}
+
+	else
+	{
+		if (isset($mem_moderation_default[$name]))
+			$is_checked = $mem_moderation_default[$name];
+		else
+			$is_checked = $checked;
+	}
+
+	return '<input value="'.$id.'" type="radio" id="'.$id.'" class="memRadio '.$name.'" name="'.$name.'"'.
+		( $is_checked ? ' checked="checked" />' : ' />').$break.
+		'<label for="'.$id.'" class="memRadio '.$name.'">'.htmlspecialchars($label).'</label>';
+}
+
+function mem_moderation_send_article($atts)
+{
+	if (!isset($_REQUEST['mem_moderation_send_article'])) {
+		$linktext = (empty($atts['linktext'])) ? mem_moderation_gTxt('send_article') : $atts['linktext'];
+		$join = (empty($_SERVER['QUERY_STRING'])) ? '?' : '&';
+		$href = $_SERVER['REQUEST_URI'].$join.'mem_moderation_send_article=yes';
+		return '<a href="'.htmlspecialchars($href).'">'.htmlspecialchars($linktext).'</a>';
+	}
+	return;
+}
+
+function mem_moderation_submit($atts, $thing)
+{
+	extract(mem_moderation_lAtts(array(
+		'button'	=> 0,
+		'label'		=> mem_moderation_gTxt('save'),
+		'name'		=> 'mem_moderation_submit',
+	), $atts));
+
+	$label = htmlspecialchars($label);
+	$name = htmlspecialchars($name);
+
+	if ($button or strlen($thing))
+	{
+		return '<button type="submit" class="memSubmit" name="'.$name.'" value="'.$label.'">'.($thing ? trim(parse($thing)) : $label).'</button>';
+	}
+	else
+	{
+		return '<input type="submit" class="memSubmit" name="'.$name.'" value="'.$label.'" />';
+	}
+}
+
+function mem_moderation_lAtts($arr, $atts)
+{
+	foreach(array('button', 'checked', 'required', 'show_input', 'show_error') as $key)
+	{
+		if (isset($atts[$key]))
+		{
+			$atts[$key] = ($atts[$key] === 'yes' or intval($atts[$key])) ? 1 : 0;
+		}
+	}
+	if (isset($atts['break']) and $atts['break'] == 'br') $atts['break'] = '<br />';
+	return lAtts($arr, $atts);
+}
+
+function mem_moderation_label2name($label)
+{
+	$label = trim($label);
+	if (strlen($label) == 0) return 'invalid';
+	if (strlen($label) <= 32 and preg_match('/^[a-zA-Z][A-Za-z0-9:_-]*$/', $label)) return $label;
+	else return 'q'.md5($label);
+}
+
+function mem_moderation_store($name, $label, $value)
+{
+	global $mem_moderation_form, $mem_moderation_labels, $mem_moderation_values;
+	$mem_moderation_form[$label] = $value;
+	$mem_moderation_labels[$name] = $label;
+	$mem_moderation_values[$name] = $value;
+}
+
+function mem_moderation_gTxt($what,$args = array())
+{
+	global $mem_moderation_lang, $textarray;
+
+	$key = strtolower( MEM_MODERATION_PREFIX . '-' . $what );
+	
+	if (isset($textarray[$key]))
+	{
+		$str = $textarray[$key];
+	}
+	else
+	{
+		$key = strtolower($what);
+		
+		if (isset($mem_moderation_lang[$key]))
+			$str = $mem_moderation_lang[$key];
+		elseif (isset($textarray[$key]))
+			$str = $textarray[$key];
+		else
+			$str = $what;
+	}
+
+	if( !empty($args) )
+		$str = strtr( $str , $args );
+
+	return $str;
 }
 
 
