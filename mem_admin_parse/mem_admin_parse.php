@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_admin_parse';
 
-$plugin['version'] = '0.2.3';
+$plugin['version'] = '0.2.4';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Provides functions to parse txp tags in the admin interface.';
@@ -35,6 +35,10 @@ h3. Admin Tag: mem_gps
 p. This tag will output the POST or GET parameter value, and is designed to be a generic postback tag for relaying information to the user after submitting a form.
 
 p. <code><txp:mem_gps name="_argname_" /></code>
+
+h3. mem_if_query name="url_param_name" value="url_param_value"
+
+h3. mem_if_step name="step_name"
 
 # --- END PLUGIN HELP ---
 <?php
@@ -73,27 +77,66 @@ if (@txpinterface == 'admin') {
 // -------------------------------------------------------------
 	function admin_processTags($matches)
 	{
-		global $pretext, $production_status, $txptrace;
+		global $pretext, $production_status, $txptrace, $txptracelevel, $txp_current_tag;
+
 		$tag = $matches[1];
 
-		$atts = (isset($matches[2])) ? splat($matches[2]) : '';
-		$thing = (isset($matches[4])) ? $matches[4] : '';
+		$trouble_makers = array(
+			'link'
+		);
+
+		if (in_array($tag, $trouble_makers))
+		{
+			$tag = 'tpt_'.$tag;
+		}
+
+		$atts = isset($matches[2]) ? splat($matches[2]) : '';
+		$thing = isset($matches[4]) ? $matches[4] : null;
+
+		$old_tag = @$txp_current_tag;
+
+		$txp_current_tag = '<txp:'.$tag.
+			($atts ? $matches[2] : '').
+			($thing ? '>' : '/>');
+
+		trace_add($txp_current_tag);
+		@++$txptracelevel;
 
 		if ($production_status == 'debug')
 		{
-			@$txptrace[] = trim($matches[0]);
 			maxMemUsage(trim($matches[0]));
 		}
 
-		if ($thing) {
-			if (function_exists($tag)) return $tag($atts,$thing,$matches[0]);
-			if (isset($pretext[$tag])) return $pretext[$tag];
-		} else {
-			if (function_exists($tag)) return $tag($atts);
-			if (isset($pretext[$tag])) return $pretext[$tag];
+		$out = '';
+
+		if (function_exists($tag))
+		{
+			$out = $tag($atts, $thing, $matches[0]);
 		}
-		if ($production_status == 'debug') // return unknown Tag with removed attributes
-			return htmlspecialchars(preg_replace('#\"[^"]*\"#i','"***"',$matches[0]));
+
+		// deprecated, remove in crockery
+		elseif (isset($pretext[$tag]))
+		{
+			$out = escape_output($pretext[$tag]);
+
+			trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+		}
+
+		else
+		{
+			trigger_error(gTxt('unknown_tag'), E_USER_WARNING);
+		}
+
+		@--$txptracelevel;
+
+		if (isset($matches[4]))
+		{
+			trace_add('</txp:'.$tag.'>');
+		}
+
+		$txp_current_tag = $old_tag;
+
+		return $out;
 	}
 } else {
 	if (function_exists('parse')) {
