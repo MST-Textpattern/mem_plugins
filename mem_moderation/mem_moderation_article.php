@@ -1088,7 +1088,7 @@ function mem_mod_article_form_display()
 
 function mem_mod_article_form_submitted()
 {
-	global $mem_moderation_successform, $txp_user, $ign_user, $mem_mod_info, $mem_modarticle_info;
+	global $txp_user, $ign_user, $mem_mod_info, $mem_modarticle_info, $mem_moderation_thanks_form;
 	
 	extract(gpsa(array('modid','step','id','articleid')));
 	$vars=array('note','user','email','articleid',
@@ -1156,10 +1156,11 @@ function mem_mod_article_form_submitted()
 	
 	$mem_modarticle_info['result'] = $res;
 	
-	$successform = @fetch_form($successform);
 	
-	if (!empty($successform))
-		$out = parse($Form);
+	$mem_moderation_thanks_form = @fetch_form($mem_moderation_thanks_form);
+	
+	if (!empty($mem_moderation_thanks_form))
+		$out = parse($mem_moderation_thanks_form);
 	
 	unset($mem_modarticle_info);
 
