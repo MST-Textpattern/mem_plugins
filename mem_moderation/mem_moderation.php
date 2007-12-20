@@ -1013,12 +1013,13 @@ function rejecter_callback($type,$data)
 function mem_moderation_form($atts, $thing='')
 {
 	global $sitename, $prefs, $production_status, $mem_moderation_error, $mem_moderation_submit,
-		$mem_moderation_form, $mem_moderation_labels, $mem_moderation_values, $mem_moderation_successform, 
-		$mem_moderation_default, $mem_moderation_form_type;
+		$mem_moderation_form, $mem_moderation_labels, $mem_moderation_values, 
+		$mem_moderation_default, $mem_moderation_form_type, $mem_moderation_thanks_form;
 	
 	extract(mem_moderation_lAtts(array(
 		'form'		=> '',
-		'successform'	=> '',
+		'thanks_form'	=> '',
+		'thanks'	=> graf(mem_moderation_gTxt('email_thanks')),
 		'label'		=> '',
 		'type'		=> '',
 		'redirect'	=> '',
@@ -1120,6 +1121,8 @@ function mem_moderation_form($atts, $thing='')
 			return mem_moderation_gTxt('spam');
 		}
 
+		$mem_moderation_thanks_form = $thanks_form;
+
 		$result = callback_event('mem_moderation_form.submit');
 
 		safe_update('txp_discuss_nonce', "used = '1', issue_time = now()", "nonce = '$nonce'");
@@ -1157,7 +1160,12 @@ function mem_moderation_form($atts, $thing='')
 END;
 			}
 			exit;
-		}			
+		}
+		else {
+			return '<div class="memThanks" id="mem'.$mem_contact_form_id.'">' .
+				($thanks_form ? fetch_form($thanks_form) : $thanks) .
+				'</div>';			
+		}
 	}
 
 	if ($show_input or gps('mem_moderation_send_article'))
@@ -1445,17 +1453,27 @@ function mem_moderation_select_category($atts)
 {
 	extract(lAtts(array(
 		'root'	=> 'root',
+		'exclude'	=> '',
 		'type'	=> 'article',
 		'first'	=> ''
 	),$atts,0));
 	
 	$rs = getTree($root, $type);
-	
+
+	if (!empty($exclude)) {
+		$exclusion = array_map('trim', split(',', preg_replace('/[\r\n\t\s]+/', ' ',$exclude)));
+	}
+	else
+		$exclusion = array();
+
 	$items = array();
 	$values = array();
 
 	if ($rs) {
 		foreach ($rs as $cat) {
+			if (count($exclusion) && $in_array($cat['name'], $exclusion))
+				continue;
+
 			$items[] = $cat['title'];
 			$values[] = $cat['name'];			
 		}
