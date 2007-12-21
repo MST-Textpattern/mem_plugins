@@ -5,8 +5,7 @@
 #ini_set('include_path', ini_get('include_path') . ':/full/path/to/textile');
 
 if (empty($test)) {
-	echo compile_plugin();
-	exit;
+	exit(compile_plugin());
 }
 
 // -----------------------------------------------------
@@ -57,11 +56,6 @@ function compile_plugin($file='') {
 
 	$plugin['md5'] = md5( $plugin['code'] );
 
-	$body = serialize($plugin);
-
-	// to produce a copy of the plugin for distribution, load this file in a browser. 
-
-	header('Content-type: text/plain');
 	$header = <<<EOF
 # {$plugin['name']} v{$plugin['version']}
 # {$plugin['description']}
@@ -73,13 +67,14 @@ function compile_plugin($file='') {
 # To install: textpattern > admin > plugins
 # Paste the following text into the 'Install plugin' box:
 # ......................................................................
-
-
 EOF;
 
-	return $header . trim(chunk_split(base64_encode( $body ), 72)). "\n";
+	$body = trim(chunk_split(base64_encode(gzencode(serialize($plugin))), 72));
 
+	// to produce a copy of the plugin for distribution, load this file in a browser. 
+	header('Content-type: text/plain');
+
+	return $header."\n\n".$body;
 }
-
 
 ?>
