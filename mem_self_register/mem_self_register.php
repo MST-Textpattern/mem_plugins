@@ -30,15 +30,17 @@ h3. Summary
 
 p. This plugin is designed to enable community driven sites. Users will be able to register themselves for an account to access the system. This plugin is compatible with the ign_user_password plugin alternate user table. This plugin provides user side tags for generating an html form where users can edit their account information.
 
+This plugin requires the plugin mem_form "(help)":index.php?event=plugin&step=plugin_help&name=mem_form.
+
 h3. Client Plug-in Tags:
 
 * *mem_self_register_form*
-* *self_register_email_message*
-* *self_register_status_message*
-* *if_self_registered*
 * *mem_change_password_form*
 * *mem_self_user_edit_form*
 * *mem_profile*
+* *self_register_email_message*
+* *self_register_status_message*
+* *if_self_registered*
 
 <hr />
 
@@ -46,17 +48,9 @@ h4. mem_self_register_form
 
 p. This will output an HTML form that will allow a user to register themselves with an account.
 
-p. Tag Attributes:
-
 * *form* -- Specifies which form contains the HTML form template. Default is "self_register_form".
 * *email_form* -- Specifies which form contains the email message template that will be sent to a user upon registering. Default is "self_register_email".
-* *wraptag* -- The HTML tag that will wrap the generated form. Default is none.
-* *isize* -- The size of the input fields. Default is 25.
-* *label* -- The text to place on the submit button. Default is the localized "submit".
-* *namewarn* -- An error message that will be displayed to the user when the name field is left blank.
-* *userwarn* -- An error message that will be displayed to the user when the user field is left blank.
-* *emailwarn* -- An error message that will be displayed to the user when the email field is left blank.
-* *class* -- The css style class to add to the wraptag. Default is "mem_self_register_form".
+
 
 p. Starter Template:
 
@@ -148,22 +142,6 @@ h4. mem_self_change_password_form
 
 p. This tag allows a change password form to be displayed on the user portion of the website. This is meant to be used with the ign_password_protect plugin. This tag supports the tag txp:mem_profile (see below).
 
-p. Tag Attributes:
-
-* *form* -- Specifies which form contains the HTML form template. This form will be reparsed by Txp. Default is none. If not specified, a default form will be used.
-* *form_mail* -- Specifies which form contains the message template that will be used to create the message that will be emailed to the user. Default is none. If not specified, a default message template will be used.
-* *wraptag* -- The HTML tag that will wrap the generated form. Default is none.
-* *class* -- The css style class to add to the wraptag. Default is "mem_password_form".
-
-p. Template tags that can be used within the 'form' template form.
-
-* <code><txp:mem_password_input /></code> -- This will display a password form field
-* <code><txp:mem_submit /></code> -- This will display a form submit button
-	
-p. Template tags that can be used within the 'form_mail' template form.
-
-* <code><txp:mem_realname /></code> -- This will be replaced with the user's real name.
-* <code><txp:mem_password /></code> -- This will be replaced with the user's password.
 
 <hr />
 
@@ -171,18 +149,6 @@ h4. mem_self_user_edit_form
 
 p. This tag allows a form to modify user information to be displayed on the user portion of the website. This is meant to be used with the ign_password_protect plugin. This tag supports the tag txp:mem_profile.
 
-p. Tag Attributes:
-
-* *form* -- Specifies which form contains the HTML form template. This form will be reparsed by Txp. Default is none.
-* *wraptag* -- The HTML tag that will wrap the generated form. Default is none.
-* *class* -- The css style class to add to the wraptag. Default is "mem_uedit_form".
-
-p. Template tags that can be used within the HTML template form.
-
-* <code><txp:mem_message /></code> -- This will be replaced with the message generated from submitting the form.
-* <code><txp:mem_realname_input /></code> -- This will display a form field for changing the user's Real Name.
-* <code><txp:mem_email_input /></code> -- This will display a form field for changing the user's email address.
-* <code><txp:mem_submit /></code> -- This will display a form submit button
 
 h4. mem_profile
 
@@ -227,6 +193,7 @@ if (!is_array($mem_self_lang))
 		'admin_email'		=>	'Admin Email',
 		'error_adding_new_author'	=>	'Error adding new author',
 		'greeting'			=>	'Hello {name}',
+		'invalid_form_tags' =>	'Invalid form tags provided to form "{form}"',
 		'log_in_at'			=>	'Log in at',
 		'log_added_pref'	=>	'Added pref {name}',
 		'log_pref_failed'	=>	'Failed to add pref {name}. {error}',
@@ -239,12 +206,14 @@ if (!is_array($mem_self_lang))
 		'log_form_found'	=>	'Found form {name}. Skipping installation of default form.',
 		'log_xmpl_tag'		=>	'Example tag to use in your page template.',
 		'mail_sorry'		=>	'Our mail system is currently down. Please try again later.',
+		'missing_form_field'	=>	'The required form field {name} is empty or missing.',
 		'password_changed'	=>	'Password changed',
 		'password_change_failed'	=>	'Failed to change password',
 		'password_invalid'	=> 'Invalid password',
 		'password_sent_to'	=>	'Password sent to {email}',
 		'saved_user_profile'	=>	'Saved User Profile',
 		'user_exists'		=>	'Username already exists. Please try another name',
+		'user_not_found'	=>	'A user account could not be found with the provided information.',
 		'your_login_info'	=>	'Your Login Info',
 		'your_new_password'	=>	'Your new password',
 		'your_password_is'	=>	'Your password is {password}',
@@ -663,7 +632,7 @@ function mem_self_register_form_submit()
 		$mem_profile['user_id'] = $rs;
 		$mem_profile['last_access'] = 0;
 
-		$message = fetch_form($mem_form_values['email_form']);
+		$message = @fetch_form($mem_form_values['email_form']);
 
 		if (!empty($message)) {
 			$vals = $mem_form_values;
@@ -816,6 +785,161 @@ if (txpinterface != 'admin' and !function_exists('txp_validate')) {
 	require_once txpath.'/include/txp_auth.php';
 }
 
+function mem_self_password_reset_form($atts,$thing='')
+{
+	global $mem_self, $sitename, $production_status;
+
+	extract(lAtts(array(
+		'form'		=> '',
+		'form_mail'	=> '',
+		'from'		=> $mem_self['admin_email'],
+		'reply'		=> '',
+		'subject'	=> "[$sitename] ".mem_self_gTxt('password_reset_confirmation_request'),
+		'confirm_url'	=> '',
+		'check_name'	=> 1,
+		'check_email'	=> 1
+	),$atts,false));
+
+	if (!is_callable('mail'))
+	{
+		return ($production_status == 'live') ?
+			mem_self_gTxt('mail_sorry') :
+			gTxt('warn_mail_unavailable');
+	}
+	
+	
+	if (gps('mem_self_confirm'))
+	{
+		sleep(3);
+
+		$confirm = pack('H*', gps('mem_self_confirm'));
+		$name    = substr($confirm, 5);
+		$nonce   = safe_field('nonce', 'txp_users', "name = '".doSlash($name)."'");
+
+		if ($nonce and $confirm === pack('H*', substr(md5($nonce), 0, 10)).$name)
+		{
+			$email = safe_field('email', 'txp_users', "name = '".doSlash($name)."'");
+			$new_pass = doSlash(generate_password(10));
+	
+			$rs = safe_update('txp_users', "pass = password(lower('$new_pass'))", "name = '".doSlash($name)."'");
+	
+			if ($rs)
+			{
+				if (send_new_password($new_pass, $email, $name))
+					return mem_self_gTxt('password_sent_to', array('{email}'=>$email));
+				else
+					return mem_self_gTxt('mail_sorry');
+			}
+			else
+				return mem_self_gTxt('password_change_failed');
+		}
+	}
+
+	if (!$check_name and !$check_email)
+		return mem_self_gTxt('invalid_form_tags',array('{form}'=>'mem_self_password_reset_form'));
+
+	if (!empty($form)) {
+		$thing = fetch_form($form);
+		unset($atts['form']);
+	}
+
+	$secrets = array('form_mail','from','reply','subject','confirm_url', 'check_name', 'check_email');
+
+	foreach($secrets as $a) {
+		$thing .= '<txp:mem_form_secret name="'.$a.'" value="'.$$a.'" />';
+		unset($atts[$a]);
+	}
+	
+	return mem_form($atts + array('type'=>'mem_self_password_reset'),$thing);
+}
+
+register_callback('mem_self_password_reset_form_submit','mem_form.submit');
+
+function mem_self_password_reset_form_submit()
+{
+	global $mem_form_type, $mem_form_values, $mem_profile;
+
+	if ($mem_form_type != 'mem_self_password')
+		return;
+
+	$check_name = $mem_form_values['check_name'];
+	$check_email = $mem_form_values['check_email'];
+
+	$where = array();
+
+	if ($check_name) {
+		foreach(array('name','p_userid','username') as $n)
+		{
+			if (isset($mem_form_values[$n])) {
+				$name = $mem_form_values[$n];
+				break;
+			}
+		}
+		
+		if (!isset($name))
+			return mem_self_gTxt('missing_form_field',array('{name}'=>'name'));
+			
+		$where[] = "name = '".doSlash($name)."'";
+	}
+	
+	if ($check_email) {
+		$email = @$mem_form_values['email'];
+		
+		if (empty($email))
+			return mem_self_gTxt('missing_form_field',array('{name}'=>'name'));
+		
+		$where[] = "email = '".doSlash($email)."'";
+	}
+	
+	if (empty($where))
+		return mem_self_gTxt('missing_form_field',array('{name}'=>'name'));
+	
+	$rs = safe_row('name, email, nonce, RealName', mem_get_user_table_name(), join('and',$where));
+	
+	if ($rs) 
+	{
+		$url = @$mem_form_values['confirm_url'];
+		$url = empty($url) ? hu.'textpattern/index.php' : hu.ltrim($url,'/');
+		$url .= (strstr($url, '?')===false) ? '?' : '&';
+		
+		extract($rs);
+
+		$confirm = bin2hex(pack('H*', substr(md5($nonce), 0, 10)).$name);		
+
+		$message = $mem_form_values['form_mail'];
+		
+		if (empty($message)) {
+			$msg = mem_self_gTxt('greeting').' '.$name.','.
+					n.n.mem_self_gTxt('password_reset_confirmation').': '.
+					n. $url . 'mem_self_confirm='.$confirm;
+		}
+		else {
+			$vals = array(
+				'realname'	=>	$RealName,
+			);
+			
+			foreach ($vals as $a=>$b) {
+				$message = str_replace('<txp:mem_'.$a.' />',$b,$message);
+			}
+			
+			$msg = parse($message);
+		}
+		
+		$to = $email;
+		$from = $mem_form_values['from'];
+		$reply = $mem_form_values['reply'];
+		$subject = $mem_form_values['subject'];
+
+		if (mem_form_mail($from,$reply,$to,$subject,$msg))
+			return mem_self_gTxt('password_reset_confirmation_request_sent');
+		else
+			return mem_self_gTxt('mail_sorry');
+	}
+	else
+		return mem_self_gTxt('user_not_found');
+}
+
+
 function mem_self_change_password_form($atts,$thing='')
 {
 	global $mem_self, $sitename, $production_status;
@@ -888,6 +1012,8 @@ function mem_self_password_form_submit()
 	if ($mem_profile) 
 	{
 		$mem_profile['new_pass'] = $new_pass;
+		
+		$form_mail = $mem_form_values['email_form'];
 		
 		if (!empty($form_mail))
 			$message = fetch_form($form_mail);
@@ -1082,6 +1208,8 @@ function mem_self_user_count($atts)
 	
 	return doTag($count,$wraptag,$class);
 }
+
+
 
 # --- END PLUGIN CODE ---
 
