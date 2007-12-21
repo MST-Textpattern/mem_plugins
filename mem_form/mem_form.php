@@ -150,6 +150,10 @@ h3. Events
 }
 
 # --- BEGIN PLUGIN CODE ---
+
+
+$mem_glz_custom_fields_plugin = load_plugin('glz_custom_fields');
+
 // needed for MLP
 define( 'MEM_FORM_PREFIX' , 'mem_form' );
 
@@ -224,7 +228,8 @@ function mem_form($atts, $thing='')
 {
 	global $sitename, $prefs, $mem_form_error, $mem_form_submit,
 		$mem_form, $mem_form_labels, $mem_form_values, 
-		$mem_form_default, $mem_form_type, $mem_form_thanks_form;
+		$mem_form_default, $mem_form_type, $mem_form_thanks_form,
+		$mem_glz_custom_fields_plugin;
 	
 	extract(mem_form_lAtts(array(
 		'form'		=> '',
@@ -308,6 +313,11 @@ function mem_form($atts, $thing='')
 	}
 	elseif ($show_input and is_array($mem_form))
 	{
+		if ($mem_glz_custom_fields_plugin) {
+			// prep the values
+			glz_custom_fields_before_save();
+		}
+		
 		callback_event('mem_form.spam');
 
 		/// load and check spam plugins/
@@ -620,7 +630,7 @@ function mem_form_select_section($atts)
 		'sort'		=> 'name ASC',
 		'first'		=> '',
 		'delimiter'	=> ',',
-	),$atts,0));
+	),$atts,false));
 	
 	if (!empty($exclude)) {
 		$exclusion = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$exclude)));
@@ -664,7 +674,7 @@ function mem_form_select_category($atts)
 		'delimiter'	=> ',',
 		'type'	=> 'article',
 		'first'	=> ''
-	),$atts,0));
+	),$atts,false));
 	
 	$rs = getTree($root, $type);
 
@@ -981,7 +991,7 @@ function mem_form_submit($atts, $thing='')
 	}
 }
 
-function mem_form_lAtts($arr, $atts)
+function mem_form_lAtts($arr, $atts, $warn=true)
 {
 	foreach(array('button', 'checked', 'required', 'show_input', 'show_error') as $key)
 	{
@@ -991,7 +1001,7 @@ function mem_form_lAtts($arr, $atts)
 		}
 	}
 	if (isset($atts['break']) and $atts['break'] == 'br') $atts['break'] = '<br />';
-	return lAtts($arr, $atts);
+	return lAtts($arr, $atts, $warn);
 }
 
 function mem_form_label2name($label)
