@@ -953,6 +953,7 @@ function mem_self_change_password_form($atts,$thing='')
 	
 	extract(lAtts(array(
 		'form'		=> '',
+		'email_form'	=> '',
 		'from'		=> $mem_self['admin_email'],
 		'reply'		=> '',
 		'subject'	=> '['.$sitename.'] '. mem_self_gTxt('password_changed'),
@@ -963,7 +964,7 @@ function mem_self_change_password_form($atts,$thing='')
 		unset($atts['form']);
 	}
 
-	foreach(array('from','reply','subject') as $a) {
+	foreach(array('from','reply','subject','email_form') as $a) {
 		$thing .= '<txp:mem_form_secret name="'.$a.'" value="'.$$a.'" />';
 		unset($atts[$a]);
 	}
