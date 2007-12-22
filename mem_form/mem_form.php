@@ -647,8 +647,8 @@ function mem_form_select_section($atts)
 	
 	if ($rs) {
 		foreach($rs as $r) {
-			$items[] = $r['name'];
-			$values[] = $r['title'];
+			$items[] = $r['title'];
+			$values[] = $r['name'];
 		}	
 	}
 	
@@ -657,7 +657,7 @@ function mem_form_select_section($atts)
 
 	if (!empty($first)) {
 		array_unshift($items, $first);
-		array_unshift($values, '');
+		array_unshift($values, ' ');
 	}
 	
 	$atts['items'] = join(',', $items);
@@ -702,12 +702,12 @@ function mem_form_select_category($atts)
 	
 	if (!empty($first)) {
 		array_unshift($items, $first);
-		array_unshift($values, '');
+		array_unshift($values, ' ');
 	}
 	
 	$atts['items'] = join(',', $items);
 	$atts['values'] = join(',', $values);
-	
+
 	return mem_form_select($atts);
 }
 
@@ -725,7 +725,7 @@ function mem_form_select($atts)
 		'values'	=> '',
 		'required'	=> 1,
 		'selected'	=> ''
-	), $atts));
+	), $atts,false));
 
 	if (empty($name)) $name = mem_form_label2name($label);
 	
@@ -735,13 +735,15 @@ function mem_form_select($atts)
 	$items = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$items)));
 	$values = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$values)));
 
+	$use_values_array = (count($items) == count($values));
+
 	if ($mem_form_submit)
 	{
 		$value = trim(ps($name));
 
 		if (strlen($value))
 		{
-			if (in_array($value, $items))
+			if ($use_values_array && in_array($value, $values) or !$use_values_array && in_array($value, $items))
 			{
 				mem_form_store($name, $label, $value);
 			}
@@ -767,15 +769,14 @@ function mem_form_select($atts)
 			$value = $selected;
 	}
 
-	$use_values_array = (count($items) == count($values));
-
 	$out = '';
 
 	foreach ($items as $item)
 	{
 		$v = $use_values_array ? array_shift($values) : $item;
 		
-		$out .= n.t.'<option'.($v == $value ? ' selected="selected">' : '>').(strlen($item) ? htmlspecialchars($item) : ' ').'</option>';
+		$out .= n.t.'<option'.($use_values_array ? ' value="'.$v.'"' : '').($v == $value ? ' selected="selected">' : '>').
+				(strlen($item) ? htmlspecialchars($item) : ' ').'</option>';
 	}
 
 	$memRequired = $required ? 'memRequired' : '';
