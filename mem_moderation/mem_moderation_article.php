@@ -104,7 +104,7 @@ require_plugin('mem_moderation');
 $mem_glz_custom_fields_plugin = @load_plugin('glz_custom_fields');
 
 
-if (($mem_glz_custom_fields_plugin && $event == "moderate") or constant('txpinterface') == 'public')
+if ($mem_glz_custom_fields_plugin && ($event == "moderate" or constant('txpinterface') == 'public'))
 {
 	ob_start("glz_custom_fields_css_js");
 	
@@ -443,7 +443,7 @@ function mod_excerpt_html_input($atts) {
 // -------------------------------------------------------------
 	
 function article_presenter($type,$data) {
-	global $article_delete_vars;
+	global $article_delete_vars, $mem_glz_custom_fields_plugin;
 
 	$out = '';
 
@@ -535,7 +535,8 @@ function article_presenter($type,$data) {
 	}
 
 
-	mem_glz_custom_fields_replace($data);
+	if ($mem_glz_custom_fields_plugin)
+		mem_glz_custom_fields_replace($data);
 
 	return $out;
 }
