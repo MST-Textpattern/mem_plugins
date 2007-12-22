@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.1';
+$plugin['version'] = '0.2';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -67,6 +67,9 @@ h2. Input Tag Attribute Descriptions:
 * *button* _int_ If "1", an html button tag will be used instead of an input tag. 
 * *cols* _int_ Number of columns in the textarea.
 * *rows* _int_ Number of rows in the textarea.
+* *password* _int_ Specifies if the input field is a password field.
+* *format* _string_ A regex pattern that will be matched against the input value. You must escape all backslashes '\'. E.g "/\\d/" is a single digit.
+* *example* _string_ An example of a correctly formatted input value.
 
 h2. Input Tags:
 
@@ -101,7 +104,7 @@ Attributes: _label, name_
 Attributes: _button, label, name_
 
 *mem_form_text*
-Attributes: _break, default, label, max, min, name, required, size_
+Attributes: _break, default, label, max, min, name, required, size, password, format, example_
 
 *mem_form_textarea*
 Attributes: _break, cols, default, label, max, min, name, required, rows_
@@ -172,6 +175,7 @@ if (!is_array($mem_form_lang))
 		'invalid_host'	=> 'The host {domain} is invalid.',
 		'invalid_utf8'	=> 'Invalid UTF8 string for field {label}.',
 		'invalid_value'	=> 'The value "{value}" is invalid for the input field {label}.',
+		'invalid_format'	=>	'The input field {label} must match the format "{example}".',
 		'max_warning'	=> 'The input field {label} must be smaller than {max} characters long.',
 		'min_warning'	=> 'The input field {label} must be at least {min} characters long.',
 		'refresh'	=> 'Refresh',
@@ -419,7 +423,9 @@ function mem_form_text($atts)
 		'name'		=> '',
 		'required'	=> 1,
 		'size'		=> '',
-		'password'	=> 0
+		'password'	=> 0,
+		'format'	=> '',
+		'example'	=> ''
 	), $atts));
 
 	$min = intval($min);
@@ -432,9 +438,22 @@ function mem_form_text($atts)
 	{
 		$value = trim(ps($name));
 		$utf8len = preg_match_all("/./su", $value, $utf8ar);
-		$hlabel = htmlspecialchars($label);
+		$hlabel = empty($label) ? htmlspecialchars($name) : htmlspecialchars($label);
+		
 
-		if (strlen($value))
+		if (strlen($value) == 0 && $required)
+		{
+			dmp($hlabel);
+			$mem_form_error[] = mem_form_gTxt('field_missing', array('{label}'=>$hlabel));
+			$isError = "errorElement";
+		}
+		elseif (!empty($format) && !preg_match($format, $value))
+		{
+			echo "format=$format<br />value=$value<br />";
+			$mem_form_error[] = mem_form_gTxt('invalid_format', array('{label}'=>$hlabel, '{example}'=>$example));
+			$isError = "errorElement";
+		}
+		elseif (strlen($value))
 		{
 			if (!$utf8len)
 			{
@@ -458,11 +477,6 @@ function mem_form_text($atts)
 			{
 				mem_form_store($name, $label, $value);
 			}
-		}
-		elseif ($required)
-		{
-			$mem_form_error[] = mem_form_gTxt('field_missing', array('{label}'=>$hlabel));
-			$isError = "errorElement";
 		}
 	}
 
@@ -652,14 +666,15 @@ function mem_form_select_section($atts)
 		}	
 	}
 	
-	unset($atts['exclude']);
-	unset($atts['sort']);
-
 	if (!empty($first)) {
 		array_unshift($items, $first);
 		array_unshift($values, ' ');
 	}
 	
+	unset($atts['exclude']);
+	unset($atts['sort']);
+	unset($atts['first']);
+
 	$atts['items'] = join(',', $items);
 	$atts['values'] = join(',', $values);
 	
@@ -699,6 +714,7 @@ function mem_form_select_category($atts)
 	
 	unset($atts['root']);
 	unset($atts['type']);
+	unset($atts['first']);
 	
 	if (!empty($first)) {
 		array_unshift($items, $first);
@@ -725,7 +741,7 @@ function mem_form_select($atts)
 		'values'	=> '',
 		'required'	=> 1,
 		'selected'	=> ''
-	), $atts,false));
+	), $atts, false));
 
 	if (empty($name)) $name = mem_form_label2name($label);
 	
