@@ -585,7 +585,7 @@ function mem_self_register_form($atts,$thing='')
 // -------------------------------------------------------------
 function mem_self_register_form_submit()
 {
-	global $prefs, $mem_self, $sitename, $mem_profile, $mem_form_type, $mem_form_values;
+	global $prefs, $mem_self, $sitename, $mem_profile, $mem_form_type, $mem_form_values, $mem_form_thanks_form;
 	
 	if ($mem_form_type != 'mem_self_register') return;
 
@@ -613,7 +613,7 @@ function mem_self_register_form_submit()
 		if (isset($mem_form_values[$c_name]))
 			$mem_profile[$c_name] = $mem_form_values[$c_name];
 	}
-
+	
 	$rs = false;
 
 	$xtra = mem_get_extra_user_columns_insert_string();
@@ -634,8 +634,22 @@ function mem_self_register_form_submit()
 
 		$message = @fetch_form($mem_form_values['email_form']);
 
+		if (empty($message)) {
+			$message = <<<EOF
+{RealName},
+	You have successfully registered at {sitename}. You can login at {login_url}.
+
+Username: {username}
+Password: {password}
+
+Regards,
+{admin_name}
+EOF;
+		}
+
 		if (!empty($message)) {
 			$vals = $mem_form_values;
+			$vals['sitename']	= $sitename;
 			$vals['admin_name']	= $prefs['mem_self_admin_name'];
 			$vals['admin_email']	= $vals['from'];
 			$vals['password']		= $pw;
@@ -643,7 +657,10 @@ function mem_self_register_form_submit()
 			$vals['username']		= $vals['name'];
 
 			foreach ($vals as $a=>$b) {
-				@$message = str_replace('<txp:mem_'.$a.' />',$b,$message);
+				$message = str_replace('<txp:mem_'.$a.' />', $b, $message);
+				$message = str_replace('{'.$a.'}', $b, $message);
+				$mem_form_thanks_form = str_replace('<txp:mem_'.$a.' />', $b, $mem_form_thanks_form);
+				$mem_form_thanks_form = str_replace('{'.$a.'}', $b, $mem_form_thanks_form);
 			}
 
 			$message = parse($message);
@@ -746,14 +763,14 @@ function mem_get_extra_user_columns()
 }
 
 // -------------------------------------------------------------
-function self_register_email_message($atts)
+function mem_self_register_email_message($atts)
 {
 	global $mem_self;
 	return $mem_self['email_message'];
 }
 
 // -------------------------------------------------------------
-function self_register_status_message($atts)
+function mem_self_register_status_message($atts)
 {
 	global $mem_self;
 	return $mem_self['status_message'];
@@ -761,7 +778,7 @@ function self_register_status_message($atts)
 
 
 // -------------------------------------------------------------
-function if_message_sent($atts,$thing)
+function mem_if_message_sent($atts,$thing)
 {
 	global $mem_self;
 	$condition = ($mem_self['email_status']);
@@ -769,7 +786,7 @@ function if_message_sent($atts,$thing)
 }
 
 // -------------------------------------------------------------
-function if_self_registered($atts,$thing)
+function mem_if_self_registered($atts,$thing)
 {
 	global $mem_self,$txp_user,$ign_user;
 	$condition = ($mem_self['status'] or !empty($_COOKIE['txp_self_registered']) or !empty($txp_user) or !empty($ign_user) );
