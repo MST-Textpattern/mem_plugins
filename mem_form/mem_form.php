@@ -165,6 +165,9 @@ global $mem_form_lang;
 if (!is_array($mem_form_lang))
 {
 	$mem_form_lang = array(
+		'error_file_extension'	=> 'File upload failed for field {label}.',
+		'error_file_failed'	=> 'Failed to upload file for field {label}.',
+		'error_file_size'	=> 'Failed to upload File for field {label}. File is to large.',
 		'field_missing'	=> 'The field {label} is required.',
 		'form_expired'	=>	'The form has expired.',
 		'form_misconfigured'	=> 'The mem_form is misconfigured. You must specify the "form" attribute.',
@@ -230,7 +233,7 @@ function mem_form_gTxt($what,$args = array())
 
 function mem_form($atts, $thing='')
 {
-	global $sitename, $prefs, $mem_form_error, $mem_form_submit,
+	global $sitename, $prefs, $file_max_upload_size, $mem_form_error, $mem_form_submit,
 		$mem_form, $mem_form_labels, $mem_form_values, 
 		$mem_form_default, $mem_form_type, $mem_form_thanks_form,
 		$mem_glz_custom_fields_plugin;
@@ -242,6 +245,9 @@ function mem_form($atts, $thing='')
 		'label'		=> '',
 		'type'		=> '',
 		'redirect'	=> '',
+		'redirect_form'	=> '',
+		'file_accept'	=> '',
+		'max_file_size'	=> $file_max_upload_size,
 		'show_error'	=> 1,
 		'show_input'	=> 1,
 	), $atts));
@@ -370,7 +376,17 @@ function mem_form($atts, $thing='')
 			{
 				$uri = htmlspecialchars($uri);
 				$refresh = mem_form_gTxt('refresh');
-				echo <<<END
+				
+				if (!empty($redirect_form))
+				{
+					$redirect_form = fetch_form($redirect_form);
+					
+					echo str_replace('{uri}', $uri, $redirect_form);					
+				}
+				
+				if (empty($redirect_form))
+				{
+					echo <<<END
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
@@ -383,6 +399,7 @@ function mem_form($atts, $thing='')
 </body>
 </html>
 END;
+				}
 			}
 			exit;
 		}
@@ -394,12 +411,16 @@ END;
 
 	if ($show_input)
 	{
-		return '<form method="post"'.((!$show_error and $mem_form_error) ? '' : ' id="mem'.$mem_form_id.'"').' class="mem_formForm" action="'.htmlspecialchars(serverSet('REQUEST_URI')).'#mem'.$mem_form_id.'">'.
+		$file_accept = (!empty($file_accept) ? ' accept="'.$file_accept.'"' : '');
+		
+		return '<form method="post"'.((!$show_error and $mem_form_error) ? '' : ' id="mem'.$mem_form_id.'"').' class="mem_formForm" action="'.htmlspecialchars(serverSet('REQUEST_URI')).'#mem'.$mem_form_id.'"'.$file_accept.'>'.
 			( $label ? n.'<fieldset>' : n.'<div>' ).
 			( $label ? n.'<legend>'.htmlspecialchars($label).'</legend>' : '' ).
 			$out.
 			n.'<input type="hidden" name="mem_form_nonce" value="'.$mem_form_nonce.'" />'.
 			n.'<input type="hidden" name="mem_form_id" value="'.$mem_form_id.'" />'.
+			(!empty($max_file_size) ? n.'<input type="hidden" name="MAX_FILE_SIZE" value="'.$max_file_size.'" />' : '' ).
+			callback_event('mem_form.display','',1).
 			$form.
 			callback_event('mem_form.display').
 			( $label ? (n.'</fieldset>') : (n.'</div>') ).
@@ -443,7 +464,6 @@ function mem_form_text($atts)
 
 		if (strlen($value) == 0 && $required)
 		{
-			dmp($hlabel);
 			$mem_form_error[] = mem_form_gTxt('field_missing', array('{label}'=>$hlabel));
 			$isError = "errorElement";
 		}
@@ -495,6 +515,90 @@ function mem_form_text($atts)
 	
     return '<label for="'.$name.'" class="memText '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
 		'<input type="'.($password ? 'password' : 'text').'" id="'.$name.'" class="memText '.$memRequired.$isError.'" name="'.$name.'" value="'.htmlspecialchars($value).'"'.$size.$maxlength.' />';
+}
+
+
+function mem_form_file($atts)
+{
+	global $mem_form_submit, $mem_form_error, $mem_form_default, $file_max_upload_size;
+	
+	extract(mem_form_lAtts(array(
+		'break'		=> ' ',
+		'isError'	=> '',
+		'label'		=> mem_form_gTxt('file'),
+		'name'		=> '',
+		'default'	=> '',
+		'size'		=> '',
+		'accept'	=> '',
+		'max_file_size'	=> $file_max_upload_size,
+		'required'	=> 1
+	), $atts));
+	
+	if (empty($name)) $name = mem_form_label2name($label);
+		
+	if ($mem_form_submit)
+	{
+		$hlabel = empty($label) ? htmlspecialchars($name) : htmlspecialchars($label);
+
+		$fname = $_FILES[$name]['tmp_name'];
+
+		switch ($_FILES[$name]['error']) {
+			case UPLOAD_ERR_OK:
+				if (is_uploaded_file($fname) and $max_file_size >= filesize($fname))
+					mem_form_store($name, $label, $_FILES[$name]);
+				elseif (!is_uploaded_file($fname)) {
+					$mem_form_error[] = mem_form_gTxt('error_file_failed', array('{label}'=>$hlabel));
+					$err = 1;
+				}
+				else {
+					$mem_form_error[] = mem_form_gTxt('error_file_size', array('{label}'=>$hlabel));
+					$err = 1;
+				}
+					
+				break;
+
+			case UPLOAD_ERR_NO_FILE:
+				if ($required) {
+					$mem_form_error[] = mem_form_gTxt('field_missing', array('{label}'=>$hlabel));
+					$err = 1;
+				}
+				break;
+
+			case UPLOAD_ERR_EXTENSION:
+				$mem_form_error[] = mem_form_gTxt('error_file_extension', array('{label}'=>$hlabel));
+				$err = 1;
+				break;
+
+			case UPLOAD_ERR_INI_SIZE:
+			case UPLOAD_ERR_FORM_SIZE:
+				$mem_form_error[] = mem_form_gTxt('error_file_size', array('{label}'=>$hlabel));
+				$err = 1;
+				break;
+				
+			default:
+				$mem_form_error[] = mem_form_gTxt('error_file_failed', array('{label}'=>$hlabel));
+				$err = 1;
+				break;
+		}
+		
+		if ($err)
+			$isError = 'errorElement';
+	}
+	else
+	{
+		if (isset($mem_form_default[$name]))
+			$value = $mem_form_default[$name];
+		else
+			$value = $default;
+	}
+	
+	$memRequired = $required ? 'memRequired' : '';
+	
+	$size = ($size) ? ' size="'.$size.'"' : '';
+	$accept = (!empty($accept) ? ' accept="'.$accept.'"' : '');
+	
+    return '<label for="'.$name.'" class="memFile '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
+		'<input type="'.($password ? 'password' : 'text').'" id="'.$name.'" class="memText '.$memRequired.$isError.'" name="'.$name.'" value="'.htmlspecialchars($value).'"'.$size.' />';
 }
 
 function mem_form_textarea($atts, $thing='')
@@ -648,12 +752,13 @@ function mem_form_select_section($atts)
 	
 	if (!empty($exclude)) {
 		$exclusion = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$exclude)));
+		$exclusion = array_map('strtolower', $exclusion);
 
 		if (count($exclusion))
 			$exclusion = join($delimiter, quote_list($exclusion));
 	}
 
-	$where = empty($exclusion) ? '1=1' : 'name NOT IN ('.$exclusion.')';
+	$where = empty($exclusion) ? '1=1' : 'LOWER(name) NOT IN ('.$exclusion.')';
 	
 	$sort = empty($sort) ? '' : ' ORDER BY '. doSlash($sort);
 	
@@ -695,6 +800,7 @@ function mem_form_select_category($atts)
 
 	if (!empty($exclude)) {
 		$exclusion = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$exclude)));
+		$exclusion = array_map('strtolower', $exclusion);
 	}
 	else
 		$exclusion = array();
@@ -704,7 +810,7 @@ function mem_form_select_category($atts)
 
 	if ($rs) {
 		foreach ($rs as $cat) {
-			if (count($exclusion) && $in_array($cat['name'], $exclusion))
+			if (count($exclusion) && in_array(strtolower($cat['name']), $exclusion))
 				continue;
 
 			$items[] = $cat['title'];
@@ -847,6 +953,7 @@ function mem_form_checkbox($atts)
 		($value ? ' checked="checked"' : '').' />'.$break.
 		'<label for="'.$name.'" class="memCheckbox '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>';
 }
+
 
 function mem_form_serverinfo($atts)
 {
