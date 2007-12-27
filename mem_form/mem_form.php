@@ -61,7 +61,7 @@ h2. Input Tag Attribute Descriptions:
 * *values* _string_ Delimited list containing a select list item values.
 * *selected* _string_ The value of the selected item.
 * *exclude* _string_ List of item values that will not be included.
-* *first* _string_ Display value of the first item in the list. E.g. "Select a Section".
+* *first* _string_ Display value of the first item in the list. E.g. "Select a Section" or "" for a blank option.
 * *type* _string_ Category type name. E.g. "article"
 * *sort* _string_  How will the list values be sorted.
 * *button* _int_ If "1", an html button tag will be used instead of an input tag. 
@@ -89,7 +89,7 @@ Attributes: _break, checked, group, label, name_
 Attributes: _name, label, value_
 
 *mem_form_select*
-Attributes: _name, break, delimiter, label, items, values, required, selected_
+Attributes: _name, break, delimiter, label, items, values, required, selected, first_
 
 *mem_form_select_category*
 Attributes: _name, break, delimiter, label, items, values, required, selected, exclude, first, sort, type_
@@ -108,6 +108,18 @@ Attributes: _break, default, label, max, min, name, required, size, password, fo
 
 *mem_form_textarea*
 Attributes: _break, cols, default, label, max, min, name, required, rows_
+
+
+h2. Helper Tags
+
+*mem_form_value*
+Description: This will output the value associated with a form field. Useful to mix HTML input fields with mem_form.
+Attributes: _id, class, attributes, wraptag_
+* *attributes* _string_ Additional HTML tag attributes that should be passed to the output tag.
+* *class* _string_ CSS class.
+* *id* _string_ ID for output wrap tag.
+* *wraptag* _string_ HTML tag to wrap around the value.
+
 
 
 h3. Helper Functions
@@ -746,7 +758,7 @@ function mem_form_select_section($atts)
 	extract(mem_form_lAtts(array(
 		'exclude'	=> '',
 		'sort'		=> 'name ASC',
-		'first'		=> '',
+		'first'		=> FALSE,
 		'delimiter'	=> ',',
 	),$atts,false));
 	
@@ -771,17 +783,15 @@ function mem_form_select_section($atts)
 		}	
 	}
 	
-	if (!empty($first)) {
-		array_unshift($items, $first);
-		array_unshift($values, ' ');
-	}
-	
-	unset($atts['exclude']);
-	unset($atts['sort']);
-	unset($atts['first']);
+	unset($atts['exclude'], $atts['sort'], $atts['first']);
 
 	$atts['items'] = join(',', $items);
 	$atts['values'] = join(',', $values);
+	
+	if ($first !== FALSE) {
+		$atts['items'] = $first.','.$atts['items'];
+		$atts['values'] = ','.$atts['items'];
+	}
 	
 	return mem_form_select($atts);
 }
@@ -818,17 +828,15 @@ function mem_form_select_category($atts)
 		}
 	}
 	
-	unset($atts['root']);
-	unset($atts['type']);
-	unset($atts['first']);
-	
-	if (!empty($first)) {
-		array_unshift($items, $first);
-		array_unshift($values, ' ');
-	}
+	unset($atts['root'], $atts['type'], $atts['first']);
 	
 	$atts['items'] = join(',', $items);
 	$atts['values'] = join(',', $values);
+
+	if ($first !== FALSE) {
+		$atts['items'] = $first.$delimiter.$atts['items'];
+		$atts['values'] = $delimiter.$atts['items'];
+	}
 
 	return mem_form_select($atts);
 }
@@ -845,6 +853,7 @@ function mem_form_select($atts)
 		'label'		=> mem_form_gTxt('option'),
 		'items'		=> mem_form_gTxt('general_inquiry'),
 		'values'	=> '',
+		'first'		=> FALSE,
 		'required'	=> 1,
 		'selected'	=> ''
 	), $atts, false));
@@ -853,6 +862,11 @@ function mem_form_select($atts)
 	
 	if (!empty($items) && $items[0] == '<') $items = parse($items);
 	if (!empty($values) && $values[0] == '<') $values = parse($values);
+	
+	if ($first !== FALSE) {
+		$atts['items'] = $first.$delimiter.$atts['items'];
+		$atts['values'] = $delimiter.$atts['items'];
+	}
 
 	$items = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$items)));
 	$values = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$values)));
@@ -1158,7 +1172,27 @@ function mem_form_display_error()
 	$out .= n.'</ul>';
 	
 	return $out;
-}	
+}
+
+function mem_form_value($atts, $thing)
+{
+	global $mem_form_values;
+	
+	extract(mem_form_lAtts(array(
+		'name'		=> '',
+		'wraptag'	=> '',
+		'class'		=> '',
+		'attributes'=> '',
+		'id'		=> '',
+	), $atts));
+	
+	$out = '';
+	
+	if (isset($mem_form_values[$name]))
+		$out = $mem_form_values[$name];
+
+	return doTag($out, $wraptag, $class, $attributes, $id);
+}
 
 function mem_form_error($err=NULL)
 {
