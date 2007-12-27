@@ -154,16 +154,6 @@ global $mem_moderation_lang;
 if (!is_array($mem_moderation_lang))
 {
 	$mem_moderation_lang = array(
-		'form_used'	=>	'This form has already been used to submit.',
-		'form_expired'	=>	'The form has expired.',
-		'spam'	=> 'Your submission was blocked by a spam filter.',
-		'invalid_utf8'	=> 'Invalid UTF8 string for field {label}.',
-		'min_warning'	=> 'The input field {label} must be at least {min} characters long.',
-		'max_warning'	=> 'The input field {label} must be smaller than {max} characters long.',
-		'field_missing'	=> 'The field {label} is required.',
-		'invalid_email'	=> 'The email address {email} is invalid.',
-		'invalid_host'	=> 'The host {domain} is invalid.',
-		
 	);
 }
 
@@ -252,16 +242,18 @@ if (!function_exists('mem_get_pref')) {
 
 if (!function_exists('mem_get_user_table_name')) {
 	function mem_get_user_table_name() {
-		$use_ign_db = mem_get_pref('mem_self_use_ign_db');
+		global $prefs;
+		
+		extract($prefs);
 		
 		$table_name = 'txp_users';
 		
-		if ($use_ign_db) {
-			$ign_use_custom = mem_get_pref('ign_use_custom');
-			if ($ign_use_custom && $ign_use_custom['val']=='1') {
-				$ign_user_db = mem_get_pref('ign_user_db');
-				if ($ign_user_db && !empty($ign_user_db['val']))
-					$table_name = $ign_user_db['val'];
+		if (isset($mem_self_use_ign_db) && $mem_self_use_ign_db == '1') {
+	
+			if (isset($ign_use_custom) && $ign_use_custom=='1') {
+	
+				if (isset($ign_user_db) && !empty($ign_user_db))
+					$table_name = $ign_user_db;
 			}
 		}
 		return $table_name;
@@ -273,13 +265,13 @@ if (@txpinterface == 'admin') {
 	register_callback('mem_moderate', $mod_event, '', 1);
 
 	// who can access this tab
-	add_privs('moderate','1,2,3');
+	add_privs($mod_event,'1,2,3');
 	// who can view submission list
-	add_privs('moderate.list','1,2,3');
+	add_privs($mod_event.'.list','1,2,3');
 	// who can edit
-	add_privs('moderate.edit','1,2,3');
+	add_privs($mod_event.'.edit','1,2,3');
 	// who can approve
-	add_privs('moderate.approve','1,2,3');
+	add_privs($mod_event.'.approve','1,2,3');
 
 	// -------------------------------------------------------------
 	function mem_moderate($event, $step) {
@@ -309,9 +301,9 @@ if (@txpinterface == 'admin') {
 				moderate_list($msg);
 			}
 		} else if ($step=='preinstall') {
-			echo moderate_preinstall();
+			echo mem_moderation_preinstall();
 		} else if ($step=='install') {
-			echo moderate_install();
+			echo mem_moderation_install();
 		} else if ($step==$mod_event.'_multi_edit') {
 			
 			$selected = gps('selected');
@@ -376,17 +368,19 @@ if (@txpinterface == 'admin') {
 		}
 	}
 
-	function moderate_preinstall()
+	function mem_moderation_preinstall()
 	{
-		return moderate_install();
+		return mem_moderation_install();
 	}
 
-	function moderate_install()
+	function mem_moderation_install()
 	{
 		$create_default_forms = true;
 		
 		$log = array();
 		
+		ob_start();
+/*		
 		// create prefs
 		$pref = mem_get_pref('mem_moderation_email_enabled');
 		if ($pref === false) {
@@ -402,12 +396,15 @@ if (@txpinterface == 'admin') {
 		if ($pref === false) {
 			mem_set_pref('mem_moderation_email_form','','mem_moderation',1,2);
 		}
+*/
+		$rs = safe_row("id", "txp_moderation", "1=1 LIMIT 1");
 
-     	if (!($rs=safe_query("SELECT 1 FROM `".PFX."txp_moderation` LIMIT 0"))) {
+     	if (!$rs && mysql_errno() != 0) {
 			$sql = "CREATE TABLE `".PFX."txp_moderation` (
 				  `id` int(10) unsigned NOT NULL auto_increment,
 				  `submitted` datetime NOT NULL default '0000-00-00 00:00:00',
 				  `type` varchar(32) NOT NULL default '',
+				  `item_id` int(10) unsigned NOT NULL default '0',
 				  `user` varchar(64) NOT NULL default '',
 				  `email` varchar(100) NOT NULL default '',
 				  `ip` varchar(16) NOT NULL default '',
@@ -420,12 +417,22 @@ if (@txpinterface == 'admin') {
 			if (($rs=safe_query($sql))) {
 				$log[] = "Created moderation table ". PFX."txp_moderation";
 			}
+			else {
+				$log[] = "Failed to create moderation table. " . mysql_error();
+			}
 		}
-     	
-     	if (mysql_errno() != 0)
-			$log[] = "Failed to create moderation table. " . mysql_error();
-		else
+		else {
 			$log[] = "Moderation table already exists";
+
+			$rs = safe_row("item_id", "txp_moderation", "1=1 LIMIT 1");
+	
+			if (!$rs && mysql_errno() != 0) {
+		     	if (safe_alter('txp_moderation', "ADD `item_id` INT NOT NULL DEFAULT '0' AFTER `type`"))
+		     		$log[] = "Added item_id field to moderation table.";
+		     	else
+		     		$log[] = "Failed to add field 'item_id' to moderation table.";
+			}
+		}
 
 		if ($create_default_forms) {
 			$form = fetch('Form','txp_form','name','mod_submission_list');
@@ -445,6 +452,8 @@ EOF;
 				$log[] = "Found form 'mod_submission_list'. Skipping installation of default form.";
 		} else
 			$log[] = "Skipping installation of default forms";
+
+		ob_end_clean();
 
 		return tag("Install Log",'h2').doWrap($log,'ul','li');
 	}
@@ -535,6 +544,10 @@ function mod_edit_link($atts,$thing) {
 function mod_id($atts) { 
 	global $mem_mod_info;
 	return $mem_mod_info['id'];
+}
+function mod_item_id($atts) {
+	global $mem_mod_info;
+	return $mem_mod_info['item_id'];
 }
 function mod_submitted($atts) { 
 	global $mem_mod_info;
@@ -735,8 +748,6 @@ function moderate_save()
 	
 	extract(gpsa(array('id','type','moderation_description')));
 	
-	
-	
 	$vars = gpsa(get_moderation_variables($type));
 	
 	update_moderated_content($id,$moderation_description,$vars);
@@ -767,7 +778,7 @@ function moderate_approve($type='',$id=false)
 		$decoded_data = decode_content($rs['data']);
 		$decoded_data['id'] = $id;
 	
-		$res = approver_callback($type,$decoded_data);
+		$res = mem_moderation_approver_callback($type,$decoded_data);
 	
 		if ($res == '')
 			remove_moderated_content($id);
@@ -792,7 +803,7 @@ function moderate_reject($type='',$id=false)
 		$decoded_data = decode_content($rs['data']);
 		$decoded_data['id'] = $id;
 	
-		$res = rejecter_callback($type,$decoded_data);
+		$res = mem_moderation_rejecter_callback($type,$decoded_data);
 
 		if ($res == '') {
 			if (remove_moderated_content($id)) {
@@ -840,7 +851,7 @@ function moderate_details()
 		$decoded_data['user'] = $user;
 		$decoded_data['email'] = $email;
 
-		$out .= presenter_callback($type, $decoded_data);
+		$out .= mem_moderation_presenter_callback($type, $decoded_data);
 
 		$out .= eInput( $mod_event ) . sInput( $mod_event .'_update' ) . hInput( 'id', $id );
 		$out .= hInput('type',$type);
@@ -867,7 +878,7 @@ function moderate_details()
 }
 
 // -------------------------------------------------------------
-function submit_moderated_content($type,$email,$desc,$data) 
+function submit_moderated_content($type,$email,$desc,$data,$item_id='0') 
 {
 	global $txp_user,$ign_user;
 
@@ -875,19 +886,28 @@ function submit_moderated_content($type,$email,$desc,$data)
 	$type = doSlash($type);
 	$email = doSlash($email);
 	$desc = doSlash($desc);
+	$item_id = doSlash($item_id);
+
+	$existing_modid = safe_field('id, item_id', 'txp_moderation', "`type` = '$type' and `user` = '$txp_user' and `item_id` = $item_id");
+
+	if ($existing_modid)
+	{
+		// do an update instead
+		if (update_moderated_content($existing_modid, $desc, $data, $type, $item_id))
+			return $existing_modid;
+		return false;
+	}	
 
 	if (empty($email))
-		$email = safe_field('email','txp_users',"name LIKE '{$txp_user}'");
+		$email = safe_field('email','txp_users',"name = '{$txp_user}'");
 
 	$ip = $_SERVER['REMOTE_ADDR'];
 	$encoded_data = encode_content($data);
 
-	// prevent duplicate submissions for a minute
-	if (safe_count('txp_moderation', "`type` = '$type' and `user` = '$txp_user' and `desc` = '$desc' and `submitted` > (now() - INTERVAL 1 MINUTE)"))
-		return false;
 
 	$set = "`submitted` = now(),
 			`type`	= '$type',
+			`item_id`	= '$item_id',
 			`user`	= '$txp_user',
 			`email`	= '$email',
 			`ip`	= '$ip',
@@ -896,6 +916,8 @@ function submit_moderated_content($type,$email,$desc,$data)
 
 	$r = safe_insert('txp_moderation',$set);
 
+//	if ($existing_modid) safe_delete('txp_moderation', "`id` = $existing_modid");
+
 	// email moderators about new submission
 //	txpMail($mod_email,'[MEM_MODERATION] New '.strtoupper($type).' Submitted',$body);
 
@@ -903,7 +925,7 @@ function submit_moderated_content($type,$email,$desc,$data)
 }
 
 // -------------------------------------------------------------
-function update_moderated_content($id,$desc,$data) 
+function update_moderated_content($id,$desc,$data,$type='',$item_id='') 
 {
 	$encoded_data = encode_content($data);
 	$id = doSlash($id);
@@ -911,6 +933,11 @@ function update_moderated_content($id,$desc,$data)
 
 	$set = "`desc`	= '$desc',
 			`data`	= '$encoded_data'";
+
+	if (!empty($type))
+		$set .= ", `type` = '$type'";
+	if (!empty($item_id) or $item_id == '0')
+		$set .= ", `item_id` = $item_id";
 
 	return safe_update('txp_moderation',$set, "id='{$id}'");
 }
@@ -932,17 +959,6 @@ function encode_content($content)
 function decode_content($content) 
 {
 	return unserialize(base64_decode($content));
-}
-
-// -------------------------------------------------------------
-function gMid($name) 
-{
-	$mid = 'moderate_';
-	$a = array('type','variables','func_presenter','func_approver','func_rejecter');
-
-	if (in_array($name,$a))
-		return $mid.$name;
-	return $name;
 }
 
 
@@ -976,7 +992,7 @@ function get_moderation_variables($type)
 }
 
 // -------------------------------------------------------------
-function moderation_callback($type,$callback,$data) 
+function mem_moderation_callback($type,$callback,$data) 
 {
 	global $moderation_types;
 
@@ -994,21 +1010,21 @@ function moderation_callback($type,$callback,$data)
 }
 
 // -------------------------------------------------------------
-function presenter_callback($type,$data) 
+function mem_moderation_presenter_callback($type,$data) 
 {
-	return moderation_callback($type,'presenter',$data);
+	return mem_moderation_callback($type,'presenter',$data);
 }
 
 // -------------------------------------------------------------
-function approver_callback($type,$data) 
+function mem_moderation_approver_callback($type,$data) 
 {
-	return moderation_callback($type,'approver',$data);
+	return mem_moderation_callback($type,'approver',$data);
 }
 
 // -------------------------------------------------------------
-function rejecter_callback($type,$data) 
+function mem_moderation_rejecter_callback($type,$data) 
 {
-	return moderation_callback($type,'rejecter',$data);
+	return mem_moderation_callback($type,'rejecter',$data);
 }
 
 function mem_moderation_gTxt($what,$args = array())
