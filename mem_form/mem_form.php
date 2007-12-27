@@ -13,13 +13,7 @@
 // 0 = Plugin help is in Textile format, no raw HTML allowed (default).
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
-
-// $LastChangedRevision$
-// $Revision$
-// $Id$
-// $LastChangedDate:$
-// $LastChangedRevision::  $:
-
+// $Rev$ $LastChangedDate$
 $plugin['version'] = '0.2';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
