@@ -1176,7 +1176,7 @@ function mem_form_display_error()
 
 function mem_form_value($atts, $thing)
 {
-	global $mem_form_values;
+	global $mem_form_submit, $mem_form_values, $mem_form_default;
 	
 	extract(mem_form_lAtts(array(
 		'name'		=> '',
@@ -1188,8 +1188,15 @@ function mem_form_value($atts, $thing)
 	
 	$out = '';
 	
-	if (isset($mem_form_values[$name]))
-		$out = $mem_form_values[$name];
+	if ($mem_form_submit)
+	{
+		if (isset($mem_form_values[$name]))
+			$out = $mem_form_values[$name];
+	}
+	else {
+		if (isset($mem_form_default[$name]))
+			$out = $mem_form_default[$name];
+	}
 
 	return doTag($out, $wraptag, $class, $attributes, $id);
 }
