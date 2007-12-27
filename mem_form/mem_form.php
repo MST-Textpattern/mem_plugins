@@ -17,6 +17,7 @@
 // $LastChangedRevision$
 // $Revision$
 // $Id$
+// $LastChangedDate:$
 
 $plugin['version'] = '0.2.$LastChangedRevision$';
 $plugin['author'] = 'Michael Manfre';
