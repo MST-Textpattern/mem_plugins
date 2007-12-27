@@ -84,6 +84,7 @@ define('ARTICLE_SUBMITS_WITH_MODERATOR_USER_ID', false);
 
 define('ARTICLE_EDIT_RESETS_TIME', false);
 
+define('MEM_USE_GLZ_CUSTOM_CSS', false);
 
 ////////////////////////////////////////////////////////////
 // Do not modify below this line
@@ -106,7 +107,8 @@ $mem_glz_custom_fields_plugin = @load_plugin('glz_custom_fields');
 
 if ($mem_glz_custom_fields_plugin && ($event == "moderate" or constant('txpinterface') == 'public'))
 {
-	ob_start("glz_custom_fields_css_js");
+	if (MEM_USE_GLZ_CUSTOM_CSS)
+		ob_start("glz_custom_fields_css_js");
 	
 	glz_custom_fields_before_save();
 	
@@ -862,12 +864,15 @@ function mem_article_delete_sentry($atts,$thing='')
 			'user'	=> $txp_user
 			);
 
-		// prevent duplicates
-		if (!safe_count('txp_moderation',"data = '{$encoded_data}'"))
-			$res = submit_moderated_content('article-delete','','article-delete: #'.$articleid.' - '.$title,$data);
+		$res = submit_moderated_content('article-delete','','article-delete: #'.$articleid.' - '.$title,$data, $articleid);
 		
 		if ($res)
+		{
+			// delete all other pending article moderation actions by this user for the same item_id
+			safe_delete('txp_moderation', "`type` LIKE 'article%' and user = '$txp_user' and item_id = $articleid and id != $res");
+			
 			return doTag($successmsg, $wraptag, $class);
+		}
 		else
 			return doTag($failuremsg, $wraptag, $class);
 	}
@@ -1056,7 +1061,12 @@ function mem_custom_user_article_list($atts, $thing='')
 //////////////////////////////////////////////////////
 // Public form methods
 
-
+function mem_moderation_article_form($atts, $thing='')
+{
+	$atts['type'] = 'mem_moderation_article';
+	
+	return mem_form($atts, $thing);
+}
 
 register_callback('mem_mod_article_form_defaults', 'mem_form.defaults');
 register_callback('mem_mod_article_form_display', 'mem_form.display');
@@ -1065,7 +1075,7 @@ register_callback('mem_mod_article_form_submitted', 'mem_form.submit');
 function mem_mod_article_form_defaults()
 {
 	global $mem_form_type, $mem_form_default, $mem_mod_info, $mem_modarticle_info;
-	
+
 	if ($mem_form_type!='mem_moderation_article')
 		return;
 	
@@ -1088,7 +1098,7 @@ function mem_mod_article_form_defaults()
 			$mem_modarticle_info[strtolower($k)] = $v;
 		}
 	}
-	
+
 	if (is_array($mem_modarticle_info)) {
 		foreach($mem_modarticle_info as $key => $val) {
 			$key = mem_form_label2name($key);
@@ -1158,7 +1168,16 @@ function mem_mod_article_form_submitted()
 
 	if (isset($ign_user)) $txp_user = $ign_user;
 
-	if (!empty($articleid)) {
+	if (!empty($modid)) $id = $modid;
+
+	
+	if ($is_delete) {
+		if (remove_moderated_content($modid))
+			$res = mem_moderation_gTxt('article_deleted');
+		else
+			$res = mem_moderation_gTxt('article_delete_failed');
+	} 
+	elseif (!empty($articleid)) {
 		$articleid = doSlash($articleid);
 		$rs = safe_rows("*, unix_timestamp(Posted) as uPosted","textpattern","`ID` = $articleid");
 
@@ -1168,23 +1187,27 @@ function mem_mod_article_form_submitted()
 				$rs[$key] = $val;
 			}
 			$rs['articleid'] = $articleid;
-			$res = submit_moderated_content('article-edit', $user_email, $mem_modarticle_info['note'], $mem_modarticle_info);
+			
+			if ($is_update) {
+				$res = update_moderated_content($id, $mem_modarticle_info['note'], $mem_modarticle_info);
+			}
+			else {
+				$res = submit_moderated_content('article-edit', $user_email, $mem_modarticle_info['note'], $mem_modarticle_info, $articleid);
+				
+				if ($res)
+				{
+					// delete all other pending article moderation actions by this user for the same item_id
+					safe_delete('txp_moderation', "`type` LIKE 'article%' and user = '$txp_user' and item_id = $articleid and id != $res");
+				}
+			}
 		}
 	}
 	else {
-
-		if (!empty($modid)) $id = $modid;
 		
 		if (isset($id)) $mem_modarticle_info['id'] = $id;
 		
-		
-		if ($is_delete) {
-			if (remove_moderated_content($modid))
-				$res = mem_moderation_gTxt('article_deleted');
-			else
-				$res = mem_moderation_gTxt('article_delete_failed');
-		} 
-		else if ($is_update) {
+
+		if ($is_update) {
 	
 			if (isset($mem_modarticle_info['note'])) 
 				$note = $mem_modarticle_info['note'];
