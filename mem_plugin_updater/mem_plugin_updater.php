@@ -851,10 +851,10 @@ function mem_plugin_updater($event, $step='')
 	}
 	else if ($event == 'mem_plugin_updater') 
 	{
-		if (empty($mem_plugin_repo_url))
-			$mem_plugin_repo_url = 'http://'.MEM_PLUGIN_XMLRPC_HOST.':'.MEM_PLUGIN_XMLRPC_PORT.'/'.MEM_PLUGIN_XMLRPC_PATH;
+		if (empty($mem_plugin_updater_url))
+			$mem_plugin_updater_url = 'http://'.MEM_PLUGIN_XMLRPC_HOST.':'.MEM_PLUGIN_XMLRPC_PORT.'/'.MEM_PLUGIN_XMLRPC_PATH;
 
-		$client = new IXR_Client($mem_plugin_repo_url);
+		$client = new IXR_Client($mem_plugin_updater_url);
 		//$client->debug = 1;
 		
 		$plugin_name = gps('plugin_name');
