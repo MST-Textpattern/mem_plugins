@@ -1016,7 +1016,7 @@ function mem_custom_user_article_list($atts, $thing='')
 
 	if ($useridfield)
 	{
-		$custom .= ' and '. $useridfield ."='{$userid}' ";
+		$custom .= ' and '. doSlash($useridfield) ."='{$userid}' ";
 	}
 
 	$statusq = ' and Status = '.intval($status);
@@ -1027,7 +1027,7 @@ function mem_custom_user_article_list($atts, $thing='')
 	$pgoffset = $offset;
 
 	$rs = safe_rows_start("*, unix_timestamp(Posted) as uPosted".$match, 'textpattern',
-	$where.' order by '.doSlash($sort).' limit '.intval($pgoffset).', '.intval($limit));
+			$where.' order by '.doSlash($sort).' limit '.intval($pgoffset).', '.intval($limit));
 
 	$fname = $form;
 
@@ -1327,10 +1327,20 @@ if ($mem_glz_custom_fields_plugin)
 			$(document).ready(function() {
 			';
 			
+			$i = 0;
 			foreach($out as $k=>$v) {
-				echo '
-					$("#'.$k.'").after(\''.$v.'\').remove();
-					';
+				echo <<<EOJS
+					$(":input[name*=$k]").each(function() {
+						if ( !$(this).hasClass('memNoGLZ') ) {
+							var oldcss = $(this).attr('class');
+							var oldval = $(this).val();
+							
+							$(this).replaceWith(
+								$('$v').val(oldval).attr("class", oldcss)
+							);
+						}
+					});
+EOJS;
 			}
 			
 			echo '
