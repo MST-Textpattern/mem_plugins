@@ -32,133 +32,275 @@ if (0) {
 ?>
 # --- BEGIN PLUGIN HELP ---
 
-h1. mem_form plugin
+h1(title). mem_form plugin
 
-h2. Form Tag
+h2(section summary). Summary
 
-*mem_form*
-Attributes: _form, thanks_form, thanks, label, type, redirect, show_error, show_input_
-* *form* _string_ Name of a form that will be parsed.
-* *thanks_form* _string_ Name of a form that will be parsed upon successful form submission.
-* *thanks* _string_ Message to display to user upon successful form submission.
-* *type* _string_ Name of the form to identify itself to bound plugin.
-* *redirect* _url_ URL to redirect upon successful form submission. Overrides "thanks" and "thanks_form"
+p. This plugin provides HTML form capabilities for other plugins. This allows for consistent form tags and behaviors, while reducing overall plugin size and development time.
 
-h2. Input Tag Attribute Descriptions:
-* *break* _string_ Separator between label tag and input tag.
-* *checked* _int_ Is this box checked. Default "0".
-* *name* _string_ Input field name.
-* *required* _int_ Specifies if input is required.
-* *default* _string_ The default value.
-* *max* _int_ Max character length.
-* *min* _int_ Min character length.
-* *size* _int_ Size of input field.
-* *label* _string_ Friendly name for the input.
-* *value* _string_ The input value.
-* *class* _string_ CSS class name.
-* *delimiter* _string_ List separator. Default ","
-* *items* _string_ Delimited list containing a select list display values.
-* *values* _string_ Delimited list containing a select list item values.
-* *selected* _string_ The value of the selected item.
-* *exclude* _string_ List of item values that will not be included.
-* *first* _string_ Display value of the first item in the list. E.g. "Select a Section" or "" for a blank option.
-* *type* _string_ Category type name. E.g. "article"
-* *sort* _string_  How will the list values be sorted.
-* *button* _int_ If "1", an html button tag will be used instead of an input tag. 
-* *cols* _int_ Number of columns in the textarea.
-* *rows* _int_ Number of rows in the textarea.
-* *password* _int_ Specifies if the input field is a password field.
-* *format* _string_ A regex pattern that will be matched against the input value. You must escape all backslashes '\'. E.g "/\\d/" is a single digit.
-* *example* _string_ An example of a correctly formatted input value.
+h2(section contact). Author Contact
 
-h2. Input Tags:
+"Michael Manfre":mailto:mmanfre@gmail.com?subject=Textpattern%20mem_form%20plugin
+"http://manfre.net":http://manfre.net
 
-*mem_form_checkbox*
-Attributes: _break, checked, isError, label, name, required_
+h2(section license). License
 
-*mem_form_email*
-Attributes: _default, label, max, min, name, required, break, size_
+p. This plugin is licensed under the "GPLv2":http://www.fsf.org/licensing/licenses/info/GPLv2.html.
 
-*mem_form_hidden*
-Attributes: _name, label, value, required, class_
+h2(section tags). Tags
 
-*mem_form_radio*
-Attributes: _break, checked, group, label, name_
-
-*mem_form_secret*
-Attributes: _name, label, value_
-
-*mem_form_select*
-Attributes: _name, break, delimiter, label, items, values, required, selected, first_
-
-*mem_form_select_category*
-Attributes: _name, break, delimiter, label, items, values, required, selected, exclude, first, sort, type_
-
-*mem_form_select_section*
-Attributes: _name, break, delimiter, label, items, values, required, selected, exclude, first, sort_
-
-*mem_form_serverinfo*
-Attributes: _label, name_
-
-*mem_form_submit*
-Attributes: _button, label, name_
-
-*mem_form_text*
-Attributes: _break, default, label, max, min, name, required, size, password, format, example_
-
-*mem_form_textarea*
-Attributes: _break, cols, default, label, max, min, name, required, rows_
+* "mem_form":#mem_form
+* "mem_form_checkbox":#mem_form_checkbox
+* "mem_form_email":#mem_form_email
+* "mem_form_file":#mem_form_file
+* "mem_form_hidden":#mem_form_hidden
+* "mem_form_radio":#mem_form_radio
+* "mem_form_secret":#mem_form_secret
+* "mem_form_select":#mem_form_select
+* "mem_form_select_category":#mem_form_select_category
+* "mem_form_select_section":#mem_form_select_section
+* "mem_form_serverinfo":#mem_form_serverinfo
+* "mem_form_submit":#mem_form_submit
+* "mem_form_text":#mem_form_text
+* "mem_form_textarea":#mem_form_textarea
+* "mem_form_value":#mem_form_value
 
 
-h2. Helper Tags
+h3(tag#mem_form). mem_form
 
-*mem_form_value*
-Description: This will output the value associated with a form field. Useful to mix HTML input fields with mem_form.
-Attributes: _id, class, attributes, wraptag_
-* *attributes* _string_ Additional HTML tag attributes that should be passed to the output tag.
-* *class* _string_ CSS class.
-* *id* _string_ ID for output wrap tag.
-* *wraptag* _string_ HTML tag to wrap around the value.
+p(tag-summary). This tag will create an HTML form and contains all of the processing and validation.
+
+*(atts) %(atts-name)form% %(atts-type)string% Name of a form that will be parsed to display the form.
+* %(atts-name)thanks_form% %(atts-type)string% Name of a form that will be parsed upon successful form submission.
+* %(atts-name)label% %(atts-type)string% Accessible name for the form.
+* %(atts-name required)type% %(atts-type)string% Name of the form to identify itself to bound plugin.
+* %(atts-name)thanks% %(atts-type)string% Message to display to user upon successful form submission.
+* %(atts-name)redirect% %(atts-type)url% URL to redirect upon successful form submission. Overrides "thanks" and "thanks_form".
+* %(atts-name)redirect_form% %(atts-type)string% Name of a form that will be parsed as displayed to the user on a redirect. The string "_{uri}_" will be replaced with the redirect url.
+
+h3(tag#mem_form_checkbox). mem_form_checkbox
+
+p(tag-summary). This will output an HTML checkbox field.
+
+*(atts) %(atts-name)break% %(atts-type)string% Separator between label tag and input tag.
+* %(atts-name)checked% %(atts-type)int% Is this box checked. Default "0".
+* %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
+* %(atts-name)name% %(atts-type)string% Input field name.
+* %(atts-name)required% %(atts-type)int% Specifies if input is required.
+* %(atts-name)class% %(atts-type)string% CSS class name.
+
+h3(tag#mem_form_email). mem_form_email
+
+p(tag-summary). This will output an HTML text input field and validates the submitted value as an email address.
+
+*(atts) %(atts-name)break% %(atts-type)string% Separator between label tag and input tag.
+* %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
+* %(atts-name)name% %(atts-type)string% Input field name.
+* %(atts-name)required% %(atts-type)int% Specifies if input is required.
+* %(atts-name)class% %(atts-type)string% CSS class name.
+* %(atts-name)default% %(atts-type)string% The default value.
+* %(atts-name)max% %(atts-type)int% Max character length.
+* %(atts-name)min% %(atts-type)int% Min character length.
+* %(atts-name)size% %(atts-type)int% Size of input field.
+
+h3(tag#mem_form_hidden). mem_form_hidden
+
+p(tag-summary). This will output an HTML hidden text input field.
+
+*(atts) %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
+* %(atts-name)name% %(atts-type)string% Input field name.
+* %(atts-name)value% %(atts-type)string% The input value.
+* %(atts-name)required% %(atts-type)int% Specifies if input is required.
+* %(atts-name)class% %(atts-type)string% CSS class name.
 
 
+h3(tag#mem_form_radio). mem_form_radio
 
-h3. Helper Functions
+p(tag-summary). This will output an HTML radio button.
 
-_bool_ *mem_form_mail*( string $from, string $reply, string $to, string $subject, string $msg )
+*(atts) %(atts-name)break% %(atts-type)string% Separator between label tag and input tag.
+* %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
+* %(atts-name)name% %(atts-type)string% Input field name.
+* %(atts-name)class% %(atts-type)string% CSS class name.
+* %(atts-name)group% %(atts-type)string% A name that identifies a group of radio buttons.
+* %(atts-name)checked% %(atts-type)int% Is this box checked. Default "0".
 
-This will send an email message.
+h3(tag#mem_form_secret). mem_form_secret
 
-mixed *mem_form_error*( [mixed $err] )
+p(tag-summary). This will output nothing in HTML and is meant to pass information to the sumbit handler plugins.
 
-If $err == NULL, then it will return an array of set errors.
-If $err != NULL, then it will set $err as the error.
+*(atts) %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
+* %(atts-name)name% %(atts-type)string% Input field name.
+* %(atts-name)value% %(atts-type)string% The input value.
 
-mixed *mem_form_default*( string $key [, $val] )
+h3(tag#mem_form_select). mem_form_select
 
-If $val is NULL, it will return the default value set for the input matching $key. FALSE if it doesn't exist.
-If $val is not NULL, it will set the default value for the input name matching $key.
+p(tag-summary). This will output an HTML select field.
+
+*(atts) %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
+* %(atts-name)name% %(atts-type)string% Input field name.
+* %(atts-name)break% %(atts-type)string% Separator between label tag and input tag.
+* %(atts-name)delimiter% %(atts-type)string% List separator. Default ","
+* %(atts-name)items% %(atts-type)string% Delimited list containing a select list display values.
+* %(atts-name)values% %(atts-type)string% Delimited list containing a select list item values.
+* %(atts-name)required% %(atts-type)int% Specifies if input is required.
+* %(atts-name)selected% %(atts-type)string% The value of the selected item.
+* %(atts-name)first% %(atts-type)string% Display value of the first item in the list. E.g. "Select a Section" or "" for a blank option.
+* %(atts-name)class% %(atts-type)string% CSS class name.
 
 
-h2. Plugin Events
+h3(tag#mem_form_category). mem_form_select_category
 
-This library allows other plugins to hook in to events with the @register_callback@ function.
+p(tag-summary). This will output an HTML select field populated with the specified Textpattern categories.
 
-h3. Globals
+*(atts) %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
+* %(atts-name)name% %(atts-type)string% Input field name.
+* %(atts-name)break% %(atts-type)string% Separator between label tag and input tag.
+* %(atts-name)delimiter% %(atts-type)string% List separator. Default ","
+* %(atts-name)items% %(atts-type)string% Delimited list containing a select list display values.
+* %(atts-name)values% %(atts-type)string% Delimited list containing a select list item values.
+* %(atts-name)required% %(atts-type)int% Specifies if input is required.
+* %(atts-name)selected% %(atts-type)string% The value of the selected item.
+* %(atts-name)first% %(atts-type)string% Display value of the first item in the list. E.g. "Select a Section" or "" for a blank option.
+* %(atts-name)class% %(atts-type)string% CSS class name.
+* %(atts-name)exclude% %(atts-type)string% List of item values that will not be included.
+* %(atts-name)sort% %(atts-type)string%  How will the list values be sorted.
+* %(atts-name)type% %(atts-type)string% Category type name. E.g. "article"
 
-* $mem_form_type: A text value that helps a plugin determine if it should process the current form.
-* $mem_form_submit: Set to true on the form postback.
-* $mem_form_default: An array containing the default values to use when displaying the form.
-* $mem_form: An array mapping all input labels to their values.
-* $mem_form_labels: An array mapping all input names to their labels.
-* $mem_form_values: An array mapping all input names to their values.
-* $mem_form_thanks_form: Contains the message that will be shown to the user after a successful submission. Either the "thanks_form" or the "thanks" attribute. A plugin can modify this value or return a string to over
+h3(tag#mem_form_section). mem_form_select_section
 
-h3. Events
+p(tag-summary). This will output an HTML select field populated with the specified Textpattern sections.
 
-* "*mem_form.defaults*": Allows a plugin to alter the default values for a form prior to being displayed.
-* "*mem_form.display*": Allows a plugin to insert additional html in the rendered html form tag.
-* "*mem_form.submit*": Allows a plugin to act upon a successful form submission.
-* "*mem_form.spam*": Allows a plugin to test a submission as spam. The function get_mem_form_evaluator() returns the evaluator.
+*(atts) %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
+* %(atts-name)name% %(atts-type)string% Input field name.
+* %(atts-name)break% %(atts-type)string% Separator between label tag and input tag.
+* %(atts-name)delimiter% %(atts-type)string% List separator. Default ","
+* %(atts-name)items% %(atts-type)string% Delimited list containing a select list display values.
+* %(atts-name)values% %(atts-type)string% Delimited list containing a select list item values.
+* %(atts-name)required% %(atts-type)int% Specifies if input is required.
+* %(atts-name)selected% %(atts-type)string% The value of the selected item.
+* %(atts-name)first% %(atts-type)string% Display value of the first item in the list. E.g. "Select a Section" or "" for a blank option.
+* %(atts-name)class% %(atts-type)string% CSS class name.
+* %(atts-name)exclude% %(atts-type)string% List of item values that will not be included.
+* %(atts-name)sort% %(atts-type)string%  How will the list values be sorted.
+
+h3(tag#mem_form_serverinfo). mem_form_serverinfo
+
+p(tag-summary). This will output no HTML and is used to pass server information to the plugin handling the form submission.
+
+*(atts) %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
+* %(atts-name)name% %(atts-type)string% Input field name.
+
+h3(tag#mem_form_submit). mem_form_submit
+
+p(tag-summary). This will output either an HTML submit input field or an HTML button.
+
+*(atts) %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
+* %(atts-name)name% %(atts-type)string% Input field name.
+* %(atts-name)class% %(atts-type)string% CSS class name.
+* %(atts-name)button% %(atts-type)int% If "1", an html button tag will be used instead of an input tag. 
+
+h3(tag#mem_form_text). mem_form_text
+
+p(tag-summary). This will output an HTML text input field.
+
+*(atts) %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
+* %(atts-name)name% %(atts-type)string% Input field name.
+* %(atts-name)class% %(atts-type)string% CSS class name.
+* %(atts-name)break% %(atts-type)string% Separator between label tag and input tag.
+* %(atts-name)default% %(atts-type)string% The default value.
+* %(atts-name)format% %(atts-type)string% A regex pattern that will be matched against the input value. You must escape all backslashes '\'. E.g "/\\d/" is a single digit.
+* %(atts-name)example% %(atts-type)string% An example of a correctly formatted input value.
+* %(atts-name)password% %(atts-type)int% Specifies if the input field is a password field.
+* %(atts-name)required% %(atts-type)int% Specifies if input is required.
+* %(atts-name)max% %(atts-type)int% Max character length.
+* %(atts-name)min% %(atts-type)int% Min character length.
+* %(atts-name)size% %(atts-type)int% Size of input field.
+
+h3(tag#mem_form_textarea). mem_form_textarea
+
+p(tag-summary). This will output an HTML textarea.
+
+*(atts) %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
+* %(atts-name)name% %(atts-type)string% Input field name.
+* %(atts-name)class% %(atts-type)string% CSS class name.
+* %(atts-name)break% %(atts-type)string% Separator between label tag and input tag.
+* %(atts-name)default% %(atts-type)string% The default value.
+* %(atts-name)max% %(atts-type)int% Max character length.
+* %(atts-name)min% %(atts-type)int% Min character length.
+* %(atts-name)required% %(atts-type)int% Specifies if input is required.
+* %(atts-name)rows% %(atts-type)int% Number of rows in the textarea.
+* %(atts-name)cols% %(atts-type)int% Number of columns in the textarea.
+
+h3(tag#mem_form_value). mem_form_value
+
+p(tag-summary). This will output the value associated with a form field. Useful to mix HTML input fields with mem_form.
+
+*(atts) %(atts-name)id% %(atts-type)string% ID for output wrap tag.
+* %(atts-name)class% %(atts-type)string% CSS class name.
+* %(atts-name)class% %(atts-type)string% CSS class.
+* %(atts-name)wraptag% %(atts-type)string% HTML tag to wrap around the value.
+* %(atts-name)attributes% %(atts-type)string% Additional HTML tag attributes that should be passed to the output tag.
+
+h2(section). Exposed Functions
+
+h3(tag). mem_form_mail
+
+p(tag-summary). This will send an email message.
+
+*(atts) %(atts-name)Return Value% %(atts-type)bool% Returns true or false, indicating whether the email was successfully given to the mail system. This does not indicate the validity of the email address or that the recipient actually received the email.
+* %(atts-name)from% %(atts-type)string% The From email address.
+* %(atts-name)reply% %(atts-type)string% The Reply To email address.
+* %(atts-name)to% %(atts-type)string% The To email address(es).
+* %(atts-name)subject% %(atts-type)string% The email's Subject.
+* %(atts-name)msg% %(atts-type)string% The email message.
+
+
+h3(tag). mem_form_error
+
+p(tag-summary). This will set or get errors associated with the form.
+
+*(atts) %(atts-name)Return Value% %(atts-type)mixed% If err is NULL, then it will return an array of errors that have been set.
+* %(atts-name optional)err% %(atts-type)string% An error that will be added to the list of form errors that will be displayed to the form user.
+
+h3(tag). mem_form_default
+
+p(tag-summary). This will get or set a default value for a form.
+
+*(atts) %(atts-name)Return Value% %(atts-type)mixed% If %(atts-name)val is NULL, then it will return the default value set for the input field matching %(atts-name)key%. If %(atts-name)key% does not exist, then it will return FALSE.
+* %(atts-name)key% %(atts-type%)string% The name of the input field.
+* %(atts-name optional)val% %(atts-type)string% If specified, this will be specified as the default value for the input field named "key".
+
+
+h2(section). Global Variables
+
+p. This library allows other plugins to hook in to events with the @register_callback@ function.
+
+*(atts) %(atts-name)$mem_form_type% %(atts-type)string% A text value that allows a plugin determine if it should process the current form.
+* %(atts-name)$mem_form_submit% %(atts-type)bool% This specifies if the form is doing a postback.
+* %(atts-name)$mem_form_default% %(atts-type)array% An array containing the default values to use when displaying the form.
+* %(atts-name)$mem_form% %(atts-type)array% An array mapping all input labels to their values.
+* %(atts-name)$mem_form_labels% %(atts-type)array% An array mapping all input names to their labels.
+* %(atts-name)$mem_form_values% %(atts-type)array% An array mapping all input names to their values.
+* %(atts-name)$mem_form_thanks_form% %(atts-type)string% Contains the message that will be shown to the user after a successful submission. Either the "thanks_form" or the "thanks" attribute. A plugin can modify this value or return a string to over
+
+h2(section). Plugin Events
+
+h3(event). mem_form.defaults
+
+p(event-summary). Allows a plugin to alter the default values for a form prior to being displayed.
+
+h3(event). mem_form.display
+
+p(event-summary). Allows a plugin to insert additional html in the rendered html form tag.
+
+h3(event). mem_form.submit
+
+p(event-summary). Allows a plugin to act upon a successful form submission.
+
+h3(event). mem_form.spam
+
+p(event-summary). Allows a plugin to test a submission as spam. The function get_mem_form_evaluator() returns the evaluator.
 
 # --- END PLUGIN HELP ---
 <?php
@@ -258,6 +400,7 @@ function mem_form($atts, $thing='')
 		'type'		=> '',
 		'redirect'	=> '',
 		'redirect_form'	=> '',
+		'class'		=> 'memForm',
 		'file_accept'	=> '',
 		'max_file_size'	=> $file_max_upload_size,
 		'show_error'	=> 1,
@@ -425,7 +568,9 @@ END;
 	{
 		$file_accept = (!empty($file_accept) ? ' accept="'.$file_accept.'"' : '');
 		
-		return '<form method="post"'.((!$show_error and $mem_form_error) ? '' : ' id="mem'.$mem_form_id.'"').' class="mem_formForm" action="'.htmlspecialchars(serverSet('REQUEST_URI')).'#mem'.$mem_form_id.'"'.$file_accept.'>'.
+		$class = htmlspecialchars($class);
+		
+		return '<form method="post"'.((!$show_error and $mem_form_error) ? '' : ' id="mem'.$mem_form_id.'"').' class="'.$class.'" action="'.htmlspecialchars(serverSet('REQUEST_URI')).'#mem'.$mem_form_id.'"'.$file_accept.'>'.
 			( $label ? n.'<fieldset>' : n.'<div>' ).
 			( $label ? n.'<legend>'.htmlspecialchars($label).'</legend>' : '' ).
 			$out.
@@ -454,6 +599,7 @@ function mem_form_text($atts)
 		'max'		=> 100,
 		'min'		=> 0,
 		'name'		=> '',
+		'class'		=> 'memText',
 		'required'	=> 1,
 		'size'		=> '',
 		'password'	=> 0,
@@ -524,9 +670,10 @@ function mem_form_text($atts)
 	$maxlength = ($max) ? ' maxlength="'.$max.'"' : '';
 
 	$memRequired = $required ? 'memRequired' : '';
+	$class = htmlspecialchars($class);
 	
-    return '<label for="'.$name.'" class="memText '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
-		'<input type="'.($password ? 'password' : 'text').'" id="'.$name.'" class="memText '.$memRequired.$isError.'" name="'.$name.'" value="'.htmlspecialchars($value).'"'.$size.$maxlength.' />';
+    return '<label for="'.$name.'" class="'.$class.' '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
+		'<input type="'.($password ? 'password' : 'text').'" id="'.$name.'" class="'.$class.' '.$memRequired.$isError.'" name="'.$name.'" value="'.htmlspecialchars($value).'"'.$size.$maxlength.' />';
 }
 
 
@@ -539,6 +686,7 @@ function mem_form_file($atts)
 		'isError'	=> '',
 		'label'		=> mem_form_gTxt('file'),
 		'name'		=> '',
+		'class'		=> 'memFile',
 		'default'	=> '',
 		'size'		=> '',
 		'accept'	=> '',
@@ -605,12 +753,13 @@ function mem_form_file($atts)
 	}
 	
 	$memRequired = $required ? 'memRequired' : '';
+	$class = htmlspecialchars($class);
 	
 	$size = ($size) ? ' size="'.$size.'"' : '';
 	$accept = (!empty($accept) ? ' accept="'.$accept.'"' : '');
 	
-    return '<label for="'.$name.'" class="memFile '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
-		'<input type="'.($password ? 'password' : 'text').'" id="'.$name.'" class="memText '.$memRequired.$isError.'" name="'.$name.'" value="'.htmlspecialchars($value).'"'.$size.' />';
+    return '<label for="'.$name.'" class="'.$class.' '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
+		'<input type="'.($password ? 'password' : 'text').'" id="'.$name.'" class="'.$class.' '.$memRequired.$isError.'" name="'.$name.'" value="'.htmlspecialchars($value).'"'.$size.' />';
 }
 
 function mem_form_textarea($atts, $thing='')
@@ -626,6 +775,7 @@ function mem_form_textarea($atts, $thing='')
 		'max'		=> 10000,
 		'min'		=> 0,
 		'name'		=> '',
+		'class'		=> 'memTextarea',
 		'required'	=> 1,
 		'rows'		=> 8
 	), $atts));
@@ -687,9 +837,10 @@ function mem_form_textarea($atts, $thing='')
 	}
 
 	$memRequired = $required ? 'memRequired' : '';
+	$class = htmlspecialchars($class);
 
-	return '<label for="'.$name.'" class="memTextarea '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
-		'<textarea id="'.$name.'" class="memTextarea '.$memRequired.$isError.'" name="'.$name.'" cols="'.$cols.'" rows="'.$rows.'">'.htmlspecialchars($value).'</textarea>';
+	return '<label for="'.$name.'" class="'.$class.' '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
+		'<textarea id="'.$name.'" class="'.$class.' '.$memRequired.$isError.'" name="'.$name.'" cols="'.$cols.'" rows="'.$rows.'">'.htmlspecialchars($value).'</textarea>';
 }
 
 function mem_form_email($atts)
@@ -706,6 +857,7 @@ function mem_form_email($atts)
 		'required'	=> 1,
 		'break'		=> br,
 		'size'		=> '',
+		'class'		=> 'memEmail',
 	), $atts));
 
 	if (empty($name)) $name = mem_form_label2name($label);
@@ -749,7 +901,8 @@ function mem_form_email($atts)
 		'name'		=> $name,
 		'required'	=> $required,
 		'break'		=> $break,
-		'size'		=> $size
+		'size'		=> $size,
+		'class'		=> $class,
 	));
 }
 
@@ -775,6 +928,9 @@ function mem_form_select_section($atts)
 	$sort = empty($sort) ? '' : ' ORDER BY '. doSlash($sort);
 	
 	$rs = safe_rows('name, title','txp_section',$where . $sort);
+	
+	$items = array();
+	$values = array();
 	
 	if ($rs) {
 		foreach($rs as $r) {
@@ -855,7 +1011,8 @@ function mem_form_select($atts)
 		'values'	=> '',
 		'first'		=> FALSE,
 		'required'	=> 1,
-		'selected'	=> ''
+		'selected'	=> '',
+		'class'		=> 'memSelect',
 	), $atts, false));
 
 	if (empty($name)) $name = mem_form_label2name($label);
@@ -916,9 +1073,10 @@ function mem_form_select($atts)
 	}
 
 	$memRequired = $required ? 'memRequired' : '';
+	$class = htmlspecialchars($class);
 
-	return '<label for="'.$name.'" class="memSelect '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
-		n.'<select id="'.$name.'" name="'.$name.'" class="memSelect '.$memRequired.$isError.'">'.
+	return '<label for="'.$name.'" class="'.$class.' '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
+		n.'<select id="'.$name.'" name="'.$name.'" class="'.$class.' '.$memRequired.$isError.'">'.
 			$out.
 		n.'</select>';
 }
@@ -933,6 +1091,7 @@ function mem_form_checkbox($atts)
 		'isError'	=> '',
 		'label'		=> mem_form_gTxt('checkbox'),
 		'name'		=> '',
+		'class'		=> 'memCheckbox',
 		'required'	=> 1
 	), $atts));
 
@@ -962,10 +1121,11 @@ function mem_form_checkbox($atts)
 	}
 
 	$memRequired = $required ? 'memRequired' : '';
+	$class = htmlspecialchars($class);
 
-	return '<input type="checkbox" id="'.$name.'" class="memCheckbox '.$memRequired.$isError.'" name="'.$name.'"'.
+	return '<input type="checkbox" id="'.$name.'" class="'.$class.' '.$memRequired.$isError.'" name="'.$name.'"'.
 		($value ? ' checked="checked"' : '').' />'.$break.
-		'<label for="'.$name.'" class="memCheckbox '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>';
+		'<label for="'.$name.'" class="'.$class.' '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>';
 }
 
 
@@ -1064,7 +1224,8 @@ function mem_form_radio($atts)
 		'checked'	=> 0,
 		'group'		=> '',
 		'label'		=> mem_form_gTxt('option'),
-		'name'		=> ''
+		'name'		=> '',
+		'class'		=> 'memRadio',
 	), $atts));
 
 	static $cur_name = '';
@@ -1103,9 +1264,11 @@ function mem_form_radio($atts)
 			$is_checked = $checked;
 	}
 
-	return '<input value="'.$id.'" type="radio" id="'.$id.'" class="memRadio '.$name.'" name="'.$name.'"'.
+	$class = htmlspecialchars($class);
+
+	return '<input value="'.$id.'" type="radio" id="'.$id.'" class="'.$class.' '.$name.'" name="'.$name.'"'.
 		( $is_checked ? ' checked="checked" />' : ' />').$break.
-		'<label for="'.$id.'" class="memRadio '.$name.'">'.htmlspecialchars($label).'</label>';
+		'<label for="'.$id.'" class="'.$class.' '.$name.'">'.htmlspecialchars($label).'</label>';
 }
 
 function mem_form_submit($atts, $thing='')
@@ -1114,18 +1277,20 @@ function mem_form_submit($atts, $thing='')
 		'button'	=> 0,
 		'label'		=> mem_form_gTxt('save'),
 		'name'		=> 'mem_form_submit',
+		'class'		=> 'memSubmit',
 	), $atts));
 
 	$label = htmlspecialchars($label);
 	$name = htmlspecialchars($name);
+	$class = htmlspecialchars($class);
 
 	if ($button or strlen($thing))
 	{
-		return '<button type="submit" class="memSubmit" name="'.$name.'" value="'.$label.'">'.($thing ? trim(parse($thing)) : $label).'</button>';
+		return '<button type="submit" class="'.$class.'" name="'.$name.'" value="'.$label.'">'.($thing ? trim(parse($thing)) : $label).'</button>';
 	}
 	else
 	{
-		return '<input type="submit" class="memSubmit" name="'.$name.'" value="'.$label.'" />';
+		return '<input type="submit" class="'.$class.'" name="'.$name.'" value="'.$label.'" />';
 	}
 }
 
