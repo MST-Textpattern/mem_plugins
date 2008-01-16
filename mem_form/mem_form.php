@@ -403,6 +403,7 @@ function mem_form($atts, $thing='')
 		'class'		=> 'memForm',
 		'file_accept'	=> '',
 		'max_file_size'	=> $file_max_upload_size,
+		'form_expired_msg' => mem_form_gTxt('form_expired'),
 		'show_error'	=> 1,
 		'show_input'	=> 1,
 	), $atts));
@@ -444,7 +445,7 @@ function mem_form($atts, $thing='')
 		}
 		else
 		{
-			$mem_form_error[] = mem_form_gTxt('form_expired');
+			$mem_form_error[] = $form_expired_msg;
 			$renonce = true;
 		}
 	}
@@ -862,34 +863,40 @@ function mem_form_email($atts)
 
 	if (empty($name)) $name = mem_form_label2name($label);
 
-	$email = $mem_form_submit ? trim(ps($name)) : $default;
-
-	if (isset($mem_form_default[$name]))
-		$email = $mem_form_default[$name];
-
-	if ($mem_form_submit and strlen($email))
+	if ($mem_form_submit)
 	{
-		if (!is_valid_email($email))
-		{
-			$mem_form_error[] = mem_form_gTxt('invalid_email', array('{email}'=>htmlspecialchars($email)));
-			$isError = "errorElement";
-		}
+		$email = trim(ps($name));
 
-		else
+		if (strlen($email))
 		{
-			preg_match("/@(.+)$/", $email, $match);
-			$domain = $match[1];
-
-			if (is_callable('checkdnsrr') and checkdnsrr('textpattern.com.','A') and !checkdnsrr($domain.'.','MX') and !checkdnsrr($domain.'.','A'))
+			if (!is_valid_email($email))
 			{
-				$mem_form_error[] = mem_form_gTxt('invalid_host', array('{domain}'=>htmlspecialchars($domain)));
+				$mem_form_error[] = mem_form_gTxt('invalid_email', array('{email}'=>htmlspecialchars($email)));
 				$isError = "errorElement";
-			}
+			}	
 			else
 			{
-				$mem_form_from = $email;
+				preg_match("/@(.+)$/", $email, $match);
+				$domain = $match[1];
+	
+				if (is_callable('checkdnsrr') and checkdnsrr('textpattern.com.','A') and !checkdnsrr($domain.'.','MX') and !checkdnsrr($domain.'.','A'))
+				{
+					$mem_form_error[] = mem_form_gTxt('invalid_host', array('{domain}'=>htmlspecialchars($domain)));
+					$isError = "errorElement";
+				}
+				else
+				{
+					$mem_form_from = $email;
+				}
 			}
 		}
+	}
+	else 
+	{
+		if (isset($mem_form_default[$name]))
+			$email = $mem_form_default[$name];
+		else
+			$email = $default;
 	}
 
 	return mem_form_text(array(
@@ -911,7 +918,6 @@ function mem_form_select_section($atts)
 	extract(mem_form_lAtts(array(
 		'exclude'	=> '',
 		'sort'		=> 'name ASC',
-		'first'		=> FALSE,
 		'delimiter'	=> ',',
 	),$atts,false));
 	
@@ -939,15 +945,10 @@ function mem_form_select_section($atts)
 		}	
 	}
 	
-	unset($atts['exclude'], $atts['sort'], $atts['first']);
+	unset($atts['exclude'], $atts['sort']);
 
-	$atts['items'] = join(',', $items);
-	$atts['values'] = join(',', $values);
-	
-	if ($first !== FALSE) {
-		$atts['items'] = $first.','.$atts['items'];
-		$atts['values'] = ','.$atts['items'];
-	}
+	$atts['items'] = join($delimiter, $items);
+	$atts['values'] = join($delimiter, $values);
 	
 	return mem_form_select($atts);
 }
@@ -958,8 +959,7 @@ function mem_form_select_category($atts)
 		'root'	=> 'root',
 		'exclude'	=> '',
 		'delimiter'	=> ',',
-		'type'	=> 'article',
-		'first'	=> ''
+		'type'	=> 'article'
 	),$atts,false));
 	
 	$rs = getTree($root, $type);
@@ -984,15 +984,10 @@ function mem_form_select_category($atts)
 		}
 	}
 	
-	unset($atts['root'], $atts['type'], $atts['first']);
+	unset($atts['root'], $atts['type']);
 	
-	$atts['items'] = join(',', $items);
-	$atts['values'] = join(',', $values);
-
-	if ($first !== FALSE) {
-		$atts['items'] = $first.$delimiter.$atts['items'];
-		$atts['values'] = $delimiter.$atts['items'];
-	}
+	$atts['items'] = join($delimiter, $items);
+	$atts['values'] = join($delimiter, $values);
 
 	return mem_form_select($atts);
 }
@@ -1021,8 +1016,8 @@ function mem_form_select($atts)
 	if (!empty($values) && $values[0] == '<') $values = parse($values);
 	
 	if ($first !== FALSE) {
-		$atts['items'] = $first.$delimiter.$atts['items'];
-		$atts['values'] = $delimiter.$atts['items'];
+		$items = $first.$delimiter.$atts['items'];
+		$values = $first.$delimiter.$atts['values'];
 	}
 
 	$items = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$items)));
@@ -1162,7 +1157,11 @@ function mem_form_secret($atts, $thing = '')
 
 	if ($mem_form_submit)
 	{
-		if ($thing) $value = trim(parse($thing));
+		if ($thing) 
+			$value = trim(parse($thing));
+		else
+			$value = trim(parse($value));
+
 		mem_form_store($name, $label, $value);
 	}
 
