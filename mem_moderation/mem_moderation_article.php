@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation_article';
 
-$plugin['version'] = '0.6';
+$plugin['version'] = '0.6.1';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Moderation plugin that allows articles to be submitted to the moderation queue.';
@@ -90,9 +90,9 @@ define('MEM_USE_GLZ_CUSTOM_CSS', false);
 // Do not modify below this line
 
 
-global $event, $step, $article_delete_vars, $mem_glz_custom_fields_plugin;
+global $event, $step, $mem_article_vars, $article_delete_vars, $mem_glz_custom_fields_plugin;
 
-$article_vars = array('note','user','email','modid','id','articleid',
+$mem_article_vars = array('note','user','email','modid','id','articleid',
 		'title','title_html','body','body_html','excerpt','excerpt_html','textile_excerpt','image',
 		'textile_body','keywords','status','section','category1','category2',
 		'annotate','annotateinvite','override_form',
@@ -107,6 +107,15 @@ $mem_glz_custom_fields_plugin = @load_plugin('glz_custom_fields');
 
 if ($mem_glz_custom_fields_plugin && ($event == "moderate" or constant('txpinterface') == 'public'))
 {
+	$g_fields = array_filter(glz_custom_fields_MySQL("all"), "glz_check_custom_set");
+	
+	foreach ( $g_fields as $custom_field )
+	{
+		$mem_article_vars[] = glz_custom_number($custom_field['custom_set']);
+	}
+	
+	$mem_article_vars = array_unique($mem_article_vars);	
+
 	if (MEM_USE_GLZ_CUSTOM_CSS)
 		ob_start("glz_custom_fields_css_js");
 	
@@ -138,8 +147,8 @@ if ((@txpinterface=='admin' and ($event=='moderate' or $event=='article_moderate
 // -------------------------------------------------------------
 if (@txpinterface == 'admin') {
 	register_callback('article_moderate','article_moderate','', 1);
-	register_moderation_type('article',$article_vars,'article_presenter','article_approver','article_rejecter');
-	register_moderation_type('article-edit',$article_vars,'article_presenter','article_approver','article_rejecter');
+	register_moderation_type('article',$mem_article_vars,'article_presenter','article_approver','article_rejecter');
+	register_moderation_type('article-edit',$mem_article_vars,'article_presenter','article_approver','article_rejecter');
 	register_moderation_type('article-delete',$article_delete_vars,'article_presenter','article_approver','article_rejecter');
 
 	if ($event=='article_moderate') {
@@ -231,14 +240,9 @@ EOF;
 
 function article_moderate_form()
 {
-	global $step;
+	global $step, $mem_article_vars;
 	
-	$data = gpsa(array('note','user','email','modid','id',
-		'title','title_html','body','body_html','excerpt','excerpt_html','textile_excerpt','image',
-		'textile_body','keywords','status','section','category1','category2',
-		'annotate','annotateinvite','override_form',
-		'custom_1','custom_2','custom_3','custom_4','custom_5',
-		'custom_6','custom_7','custom_8','custom_9','custom_10'));
+	$data = gpsa($mem_article_vars);
 	
 	return article_presenter('article',$data);
 }
@@ -247,14 +251,10 @@ function article_moderate_form()
 // -------------------------------------------------------------
 function mod_article_form($atts,$thing='')
 {
-	global $step,$txp_user,$ign_user,$mem_mod_info,$mem_modarticle_info;
+	global $step,$txp_user,$ign_user,$mem_mod_info,$mem_modarticle_info, $mem_article_vars;
+	
 	extract(gpsa(array('modid','action','event','step','id')));
-	$vars=array('note','user','email',
-	'title','title_html','body','body_html','excerpt','excerpt_html','textile_excerpt','image',
-	'textile_body','keywords','status','section','category1','category2',
-	'annotate','annotateinvite','override_form',
-	'custom_1','custom_2','custom_3','custom_4','custom_5',
-	'custom_6','custom_7','custom_8','custom_9','custom_10'	);
+	
 
 	if (!empty($modid)) $id = $modid;
 
@@ -265,7 +265,7 @@ function mod_article_form($atts,$thing='')
 		'successform'	=> 'mod_article_success'
 	),$atts));
 
-	$mem_modarticle_info = gpsa($vars);
+	$mem_modarticle_info = gpsa($mem_article_vars);
 	if (isset($id))
 		$mem_modarticle_info['id'] = $id;
 	extract($mem_modarticle_info);
@@ -445,7 +445,7 @@ function mod_excerpt_html_input($atts) {
 // -------------------------------------------------------------
 	
 function article_presenter($type,$data) {
-	global $article_delete_vars, $mem_glz_custom_fields_plugin;
+	global $article_delete_vars, $mem_glz_custom_fields_plugin, $mem_glz_custom_fields_plugin;
 
 	$out = '';
 
@@ -484,6 +484,11 @@ function article_presenter($type,$data) {
 			'custom_8'	=> '',
 			'custom_9'	=> '',
 			'custom_10'	=> '',
+			'custom_11'	=> '',
+			'custom_12'	=> '',
+			'custom_13'	=> '',
+			'custom_14'	=> '',
+			'custom_15'	=> '',
 			'articleid'	=> 0
 		),$data));
 
@@ -508,7 +513,7 @@ function article_presenter($type,$data) {
 				tr( fLabelCell( 'override_default_form', '', 'override-form' ) . tda(form_pop($override_form,'override-form').popHelp('override_form'))) .
 				tr( fLabelCell( 'author' ) . fInputCell( 'user', $user, 1, 30 ));
 
-		for($i=1;$i<=10;$i++) {
+		for($i=1;$i<=15;$i++) {
 			$k = "custom_{$i}";
 			$kset = "custom_{$i}_set";
 			if (isset($$kset) and !empty($$kset))
@@ -545,7 +550,7 @@ function article_presenter($type,$data) {
 
 function article_approver($type,$data)
 {
-	global $txpcfg,$txp_user;
+	global $txpcfg, $txp_user, $mem_glz_custom_fields_plugin;
 
 	if (!is_array($data))
 		return 'invalid data';
@@ -631,6 +636,11 @@ function article_approver($type,$data)
 			if ($rs !== false)
 			{
 				$GLOBALS['ID'] = mysql_insert_id();
+
+				if ($mem_glz_custom_fields_plugin) 
+				{
+					glz_custom_fields_save();
+				}
 					
 				if ($Status>=4) {
 					
@@ -753,6 +763,13 @@ function article_approver($type,$data)
 			"ID = $ID"
 		);
 
+		if ($rs and $mem_glz_custom_fields_plugin)
+		{
+			$GLOBALS['ID'] = $ID;
+
+			glz_custom_fields_save();
+		}
+
 		if($Status >= 4) {
 			if ($oldArticle['Status'] < 4) {
 				do_pings();	
@@ -869,7 +886,7 @@ function mem_article_delete_sentry($atts,$thing='')
 		if ($res)
 		{
 			// delete all other pending article moderation actions by this user for the same item_id
-			safe_delete('txp_moderation', "`type` LIKE 'article%' and user = '$txp_user' and item_id = $articleid and id != $res");
+			safe_delete('txp_moderation', "`type` LIKE 'article%' and user = '$txp_user' and item_id = $articleid and id != $res and item_id != 0");
 			
 			return doTag($successmsg, $wraptag, $class);
 		}
@@ -1074,7 +1091,7 @@ register_callback('mem_mod_article_form_submitted', 'mem_form.submit');
 
 function mem_mod_article_form_defaults()
 {
-	global $mem_form_type, $mem_form_default, $mem_mod_info, $mem_modarticle_info;
+	global $mem_form, $mem_form_type, $mem_form_default, $mem_mod_info, $mem_modarticle_info;
 
 	if ($mem_form_type!='mem_moderation_article')
 		return;
@@ -1091,7 +1108,7 @@ function mem_mod_article_form_defaults()
 	}
 	else if (!empty($articleid)) {
 		$rs = safe_row('*', 'textpattern',"`id`='".doSlash($articleid)."'");
-	
+
 		$mem_modarticle_info = array();
 		
 		foreach($rs as $k => $v) {
@@ -1145,21 +1162,14 @@ function mem_mod_article_form_display()
 
 function mem_mod_article_form_submitted()
 {
-	global $mem_form_type, $txp_user, $ign_user, $mem_mod_info, $mem_modarticle_info, $mem_form_thanks_form;
+	global $prefs, $mem_article_vars, $mem_form_type, $txp_user, $ign_user, $mem_mod_info, $mem_modarticle_info, $mem_form_thanks_form;
 	
 	if ($mem_form_type!='mem_moderation_article')
 		return;
 		
 	extract(gpsa(array('modid','step','id','articleid')));
-	$vars=array('note','user','email','articleid',
-		'title','title_html','body','body_html','excerpt','excerpt_html','textile_excerpt','image',
-		'textile_body','keywords','status','section','category1','category2',
-		'annotate','annotateinvite','override_form',
-		'custom_1','custom_2','custom_3','custom_4','custom_5',
-		'custom_6','custom_7','custom_8','custom_9','custom_10'	);
 
-	$mem_modarticle_info = gpsa($vars);
-
+	$mem_modarticle_info = gpsa($mem_article_vars);
 	$out = '';
 	
 	$is_save = ps('mem_moderation_save');
@@ -1197,7 +1207,7 @@ function mem_mod_article_form_submitted()
 				if ($res)
 				{
 					// delete all other pending article moderation actions by this user for the same item_id
-					safe_delete('txp_moderation', "`type` LIKE 'article%' and user = '$txp_user' and item_id = $articleid and id != $res");
+					safe_delete('txp_moderation', "`type` LIKE 'article%' and user = '$txp_user' and item_id = $articleid and id != $res and item_id != 0");
 				}
 			}
 		}
@@ -1330,7 +1340,7 @@ if ($mem_glz_custom_fields_plugin)
 			$i = 0;
 			foreach($out as $k=>$v) {
 				echo <<<EOJS
-					$(":input[name*=$k]").each(function() {
+					$(":input[name=$k]").each(function() {
 						if ( !$(this).hasClass('memNoGLZ') ) {
 							var oldcss = $(this).attr('class');
 							var oldval = $(this).val();

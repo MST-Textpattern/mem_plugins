@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation_image';
 
-$plugin['version'] = '0.4.9';
+$plugin['version'] = '0.6';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Moderation plugin that allows user to submit images.';
@@ -43,27 +43,30 @@ p. "Start Install Wizard":./index.php?event=image_moderate&step=preinstall
 // Revisions: 
 //
 ////////////////////////////////////////////////////////////
-global $event,$extensions;
-global $path_to_site,$img_dir;
+
+define('MEM_MOD_ARTICLE_TMP_FILE_PREFIX', 'txpmem_');
+
+
+global $event, $extensions, $path_to_site, $img_dir, $prefs, $image_vars;
 
 require_plugin('mem_moderation');
-require_plugin('mem_admin_parse');
 
-global $image_vars;
 $image_vars = array('id','name','category','ext','w','h','alt','caption','date','author','tmpfile','tmpfilename','date_taken','keywords','note');
 
-if (mem_get_pref('mod_image_wrap_with_article','val')) {
+
+
+if (@$prefs['mod_image_wrap_with_article']) {
 	require_plugin('mem_moderation_article');
 }
 
 $image_vars = array_merge($image_vars, array('article_section', 'article_title',  'article_title_html', 'article_body', 'article_body_html', 'article_excerpt', 'article_excerpt_html', 'article_textile_excerpt', 'article_image', 'article_textile_body', 'article_keywords', 'article_status', 'article_category1', 'article_category2', 'article_annotate', 'article_annotateinvite', 'article_override_form', 'article_custom_1', 'article_custom_2', 'article_custom_3', 'article_custom_4', 'article_custom_5', 'article_custom_6', 'article_custom_7', 'article_custom_8', 'article_custom_9', 'article_custom_10', 'article_wrap_enabled') );
 
 
-register_moderation_type('image',$image_vars,'image_presenter','image_approver','image_rejecter');
-
 //--------------------------------------------------------------------
 if (@txpinterface!='admin' || (@txpinterface=='admin' and ($event=='moderate' or $event=='image_moderate')))
 {
+	register_moderation_type('image',$image_vars,'mem_moderation_image_presenter','mem_moderation_image_approver','mem_moderation_image_rejecter');
+
 	require_once txpath.'/include/txp_image.php';
 	include_once txpath.'/lib/class.thumb.php';
 }
@@ -71,12 +74,12 @@ if (@txpinterface!='admin' || (@txpinterface=='admin' and ($event=='moderate' or
 //--------------------------------------------------------------------
 if (@txpinterface == 'admin') {
 
-	register_callback('image_moderate','image_moderate','', 1);
+	register_callback('mem_moderation_image_moderate','image_moderate','', 1);
 	add_privs('moderation.image','1,2,3,4,5,6');
 	
 	if ($event == 'image_moderate' or $event == 'moderate') {
 
-		function image_uninstall() {
+		function mem_moderation_image_uninstall() {
 			$log = array();
 			
 			if (safe_delete('txp_prefs',"name LIKE 'mod_image_%'"))
@@ -87,11 +90,11 @@ if (@txpinterface == 'admin') {
 			return tag("UnInstall Log",'h2').doWrap($log,'ul','li');
 		}
 
-		function image_preinstall() {
-			return image_install();
+		function mem_moderation_image_preinstall() {
+			return mem_moderation_image_install();
 		}
 		
-		function image_install() {
+		function mem_moderation_image_install() {
 			$log = array();
 			
 			// remove old values
@@ -132,29 +135,29 @@ if (@txpinterface == 'admin') {
 			return tag("Install Log",'h2').doWrap($log,'ul','li');
 		}
 
-		function image_moderate($event, $step) {
+		function mem_image_moderate($event, $step) {
 			$msg='';
 
 			if ($step=='image_save' or $step=='image_update') {
 				// save changes
 				$msg = mem_image_save($step);
 			} else if ($step=='preinstall' || $step=='install') {
-				register_tab('extensions','image_moderate','image_moderate');
+				register_tab('extensions','image_moderate', mem_modimg_gTxt('image_moderate'));
 				echo pageTop('Image Moderation','');
 				
 				if ($step=='preinstall')
-					echo image_preinstall();
+					echo mem_moderation_image_preinstall();
 				else
-					echo image_install();
+					echo mem_moderation_image_install();
 				
 				return;
 			} else if ($step=='uninstall') {
-				register_tab('extensions','image_moderate','image_moderate');
+				register_tab('extensions', 'image_moderate', mem_modimg_gTxt('image_moderate'));
 				echo pageTop('Image Moderation','');
-				echo image_uninstall();
+				echo mem_image_uninstall();
 				return;
 			} else {
-				register_tab('extensions','image_moderate','image_moderate');
+				register_tab('extensions', 'image_moderate', mem_modimg_gTxt('image_moderate'));
 				if ($step) {
 					$msg = "Step is '$step'";
 				}
@@ -173,6 +176,71 @@ function image_moderate_form()
 	$data = gpsa(array('alt','category','caption','author','name','ext','tmpfile','keywords','photographer','date_taken','title','note'));
 
 	return image_presenter('image',$data);
+}
+
+
+//register_callback('mem_mod_article_form_defaults', 'mem_form.defaults');
+register_callback('mem_moderation_image_form_display', 'mem_form.display','',1);
+register_callback('mem_moderation_image_form_submitted', 'mem_form.submit');
+
+function mem_moderation_image_form($atts, $thing='')
+{
+	$atts = lAtts(array(
+		'form'	=>	'',
+	),$atts);
+	
+	$atts['type'] = 'mem_moderation_image';
+
+	if (!empty($form)) {
+		$thing = fetch_form($form);
+		unset($atts['form']);
+	}
+
+	$secrets = array();
+
+	foreach($secrets as $a) {
+		$thing .= '<txp:mem_form_secret name="'.$a.'" value="'.$$a.'" />';
+		unset($atts[$a]);
+	}
+
+	return mem_form($atts, $thing);
+}
+
+function mem_moderation_image_form_submitted()
+{
+	global $mem_form_type, $mem_form_values;
+	
+	if ($mem_form_type != 'mem_moderation_image')
+		return;
+
+	extract(gpsa($image_vars));
+
+
+	$is_save = ps('mem_moderation_save');
+	$is_delete = ps('mem_moderation_delete');
+	$is_update = ps('mem_moderation_update') || ($is_save && ps('modid'));
+	
+	if ($is_update) 
+		$is_save = false;
+	
+	if ($is_delete)
+	{
+		if (remove_moderated_content($modid))
+			image_rejector('image', array('tmpfile'=>$tmpfilename));
+	}
+	elseif ($is_save || $is_update)
+	{
+		// get args
+		
+		if ($is_update)
+		{
+			
+		}
+		else
+		{
+			
+		}
+	}
 }
 
 function modimg_form($atts,$thing='')
@@ -207,7 +275,7 @@ function modimg_form($atts,$thing='')
 		if ($step=='image_delete') {
 			if (remove_moderated_content($modid)) {
 				// delete the file
-				image_rejecter('image',array('tmpfile'=>$tmpfile));
+				mem_moderation_image_rejecter('image',array('tmpfile'=>$tmpfile));
 				$msg = 'Deleted image';
 			} else {
 				$msg = 'Failed to delete image';
@@ -375,9 +443,9 @@ function mem_image_save($step)
 
 		$file = get_uploaded_file($file);
 
-		$varray['tmpfilename'] = 'mod_' . basename($file) . $_FILES['thefile']['name'];
+		$varray['tmpfilename'] = MEM_MOD_ARTICLE_TMP_FILE_PREFIX . basename($file) . $_FILES['thefile']['name'];
 
-		$pending_file = $path_to_site . '/images/' . 'mod_' . basename($file) . $_FILES['thefile']['name'];
+		$pending_file = $path_to_site . '/images/' . $varray['tmpfilename'];
 
 		list($w,$h,$extension) = getimagesize($file);
 
@@ -472,7 +540,7 @@ function modimg_img($atts) {
 }
 
 
-function image_presenter($type,$data) {
+function mem_moderation_image_presenter($type,$data) {
 	global $img_dir,$image_vars;
 	
 	$create_article = mem_get_pref('mod_image_wrap_with_article','val');
@@ -556,7 +624,7 @@ function image_presenter($type,$data) {
 	return $out;
 }
 
-function image_approver($type,$data)
+function mem_moderation_image_approver($type,$data)
 {
 	if ($type=='image' && is_array($data)) {
 		extract($data);
@@ -649,14 +717,18 @@ function modimg_wrap_image($data)
 			$article_data[substr($key,8)] = $val;
 	}
 	
-	return article_approver('article',$article_data);
+	return mem_moderation_article_approver('article',$article_data);
 }
 
-function image_rejecter($type,$data)
+function mem_moderation_image_rejecter($type,$data)
 {
 	if ($type=='image' and is_array($data)) {
 		extract($data);
-		if (@file_exists($tmpfile)) {
+		
+		$prefix = MEM_MOD_ARTICLE_TMP_FILE_PREFIX;
+		$len = strlen(MEM_MOD_ARTICLE_TMP_FILE_PREFIX);
+		
+		if (@file_exists($tmpfile) and strncmp($tmpfile, $prefix, $len) == 0) {
 			// remove the rejected image file
 			unlink($tmpfile);
 		}
