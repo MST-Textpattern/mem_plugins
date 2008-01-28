@@ -628,7 +628,7 @@ function mem_form_text($atts)
 		}
 		elseif (!empty($format) && !preg_match($format, $value))
 		{
-			echo "format=$format<br />value=$value<br />";
+			//echo "format=$format<br />value=$value<br />";
 			$mem_form_error[] = mem_form_gTxt('invalid_format', array('{label}'=>$hlabel, '{example}'=>$example));
 			$isError = "errorElement";
 		}
