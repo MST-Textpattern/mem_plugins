@@ -137,7 +137,7 @@ define('PUBLISHERS_BYPASS_QUEUE_DELAY', true);
 define('ALLOW_APPROVE_FROM_LIST', false);
 
 
-global $mod_event;
+global $mod_event, $mem_moderation_lang, $prefs;
 $mod_event = 'moderate';
 
 require_plugin('mem_admin_parse');
@@ -149,11 +149,19 @@ require_plugin('mem_admin_parse');
 // needed for MLP
 define( 'MEM_MODERATION_PREFIX' , 'mem_moderation' );
 
-global $mem_moderation_lang;
+
+if (!isset($prefs['mem_mod_notify_email'])) {
+	set_pref('mem_mod_notify_email', '', 'mem_moderation', 1);
+}
+if (!isset($prefs['mem_mod_email_on_new'])) {
+	set_pref('mem_mod_email_on_new', '', 'mem_moderation', 1, 'yesnoradio');
+}
 
 if (!is_array($mem_moderation_lang))
 {
 	$mem_moderation_lang = array(
+		'new_submission_email'	=> "The user {user} has submitted a request of type {type} to the moderation queue.",
+		'new_submission_email_subject'	=> "Moderation Queue",
 	);
 }
 
@@ -375,6 +383,8 @@ if (@txpinterface == 'admin') {
 
 	function mem_moderation_install()
 	{
+		global $prefs;
+
 		$create_default_forms = true;
 		
 		$log = array();
@@ -880,26 +890,30 @@ function moderate_details()
 // -------------------------------------------------------------
 function submit_moderated_content($type,$email,$desc,$data,$item_id='0') 
 {
-	global $txp_user,$ign_user;
+	global $txp_user,$ign_user, $mem_mod_email_on_new, $mem_mod_notify_email, $sitename;
 
-	if (isset($ign_user)) $txp_user = $ign_user;
+	$user = isset($ign_user) ? $ign_user : $txp_user;
+
 	$type = doSlash($type);
 	$email = doSlash($email);
 	$desc = doSlash($desc);
 	$item_id = doSlash($item_id);
 
-	$existing_modid = safe_field('id, item_id', 'txp_moderation', "`type` = '$type' and `user` = '$txp_user' and `item_id` = $item_id");
-
-	if ($existing_modid)
+	if ($item_id != 0)
 	{
-		// do an update instead
-		if (update_moderated_content($existing_modid, $desc, $data, $type, $item_id))
-			return $existing_modid;
-		return false;
-	}	
+		$existing_modid = safe_field('id, item_id', 'txp_moderation', "`type` = '$type' and `user` = '$txp_user' and `item_id` = $item_id");
+	
+		if ($existing_modid)
+		{
+			// do an update instead
+			if (update_moderated_content($existing_modid, $desc, $data, $type, $item_id))
+				return $existing_modid;
+			return false;
+		}	
+	}
 
 	if (empty($email))
-		$email = safe_field('email','txp_users',"name = '{$txp_user}'");
+		$email = safe_field('email','txp_users',"name = '{$user}'");
 
 	$ip = $_SERVER['REMOTE_ADDR'];
 	$encoded_data = encode_content($data);
@@ -908,7 +922,7 @@ function submit_moderated_content($type,$email,$desc,$data,$item_id='0')
 	$set = "`submitted` = now(),
 			`type`	= '$type',
 			`item_id`	= '$item_id',
-			`user`	= '$txp_user',
+			`user`	= '$user',
 			`email`	= '$email',
 			`ip`	= '$ip',
 			`desc`	= '$desc',
@@ -918,8 +932,17 @@ function submit_moderated_content($type,$email,$desc,$data,$item_id='0')
 
 //	if ($existing_modid) safe_delete('txp_moderation', "`id` = $existing_modid");
 
-	// email moderators about new submission
-//	txpMail($mod_email,'[MEM_MODERATION] New '.strtoupper($type).' Submitted',$body);
+	$mem_mod_email_on_new = true;
+	$mem_mod_email = 'mmanfre@gmail.com';
+	
+	if ($mem_mod_email_on_new && !empty($mem_mod_notify_email))
+	{
+		$message = mem_moderation_gTxt('new_submission_email', array('{user}'=> $user, '{type}'=> $type));
+		$reply = $from = $to = $mem_mod_notify_email;
+		$subject = "[$sitename] " . mem_moderation_gTxt('new_submission_email_subject');
+		
+		$sent = mem_form_mail($from,$reply,$to,$subject,$message);
+	}
 
 	return $r;
 }
