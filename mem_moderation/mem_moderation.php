@@ -8,7 +8,7 @@
 // Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation';
 
-$plugin['version'] = '0.6';
+$plugin['version'] = '0.6.1';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin adds a generic moderation queue to Textpattern. A plugin can extend the moderation queue to support any type of content.';
@@ -139,6 +139,8 @@ define('ALLOW_APPROVE_FROM_LIST', false);
 
 global $mod_event, $mem_moderation_lang, $prefs;
 $mod_event = 'moderate';
+
+add_privs($mod_event, '1');
 
 require_plugin('mem_admin_parse');
 // make sure ign is loaded first, if it exists
