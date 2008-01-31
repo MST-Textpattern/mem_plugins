@@ -265,11 +265,15 @@ function mem_self_gTxt($what,$args = array())
 	return $str;
 }
 
-global $event;
+global $event, $dbversion;
 
 if (!isset($event)) $event = '';
 
 if ($event != 'admin') {
+	
+	if (!empty($dbversion) && version_compare($dbversion, '4.0.5', '>'))
+		include_once txpath.'/lib/txplib_admin.php';
+
 	require_once txpath.'/include/txp_admin.php';
 
 	global $levels;
@@ -310,11 +314,13 @@ $mem_self = array(
 				'email_message'		=>	''				
 			);
 
-$mem_self['admin_email'] = $prefs['mem_self_admin_email'];
-$mem_self['admin_name'] = $prefs['mem_self_admin_name'];
-$mem_self['new_user_priv'] = $prefs['mem_self_new_user_priv'];
+$mem_self['admin_email'] = isset($prefs['mem_self_admin_email']) ? $prefs['mem_self_admin_email'] : '';
+$mem_self['admin_name'] = isset($prefs['mem_self_admin_name']) ? $prefs['mem_self_admin_name'] : '';
+$mem_self['new_user_priv'] = isset($prefs['mem_self_new_user_priv']) ? $prefs['mem_self_new_user_priv'] : '0';
 
 if ( @txpinterface == 'admin' ) {
+	add_privs('self-reg','1');
+
 	register_callback('mem_self_register','self-reg','', 1);
 	if ($event=='self-reg') {
 		// fake tabs when using them. Silences warnings from pageTop()
@@ -345,7 +351,7 @@ if ( @txpinterface == 'admin' ) {
 
 			$use_ign_input = '';
 			// is ign_password_protect loaded on the system?
-			if (load_plugin('ign_password_protect') || $mem_use_ign_db) {
+			if (load_plugin('ign_password_protect') || (isset($mem_use_ign_db) && $mem_use_ign_db)) {
 				$mem_use_ign_db = !empty($mem_use_ign_db) ? $mem_use_ign_db : '0';
 				$use_ign_input = yesnoradio('use_ign_db',$mem_use_ign_db);
 			}
@@ -449,7 +455,7 @@ if ( @txpinterface == 'admin' ) {
 		} else {
 			$log[] = mem_self_gTxt('log_pref_exists', array('{name}'=>'mem_self_admin_name','{value}'=>$rs));
 		}
-		if (($rs=safe_row('val,html','txp_prefs',"name='mem_self_new_user_priv'")) === false) {
+		if (!($rs=safe_row('val,html','txp_prefs',"name='mem_self_new_user_priv'"))) {
 			if ( set_pref('mem_self_new_user_priv',$new_user_priv,'self_reg',1,0,'priv_levels')) {
 				$log[] = mem_self_gTxt('log_added_pref', array('{name}'=>'mem_self_new_user_priv'));
 				$mem_self['new_user_priv'] = $new_user_priv;
@@ -457,10 +463,10 @@ if ( @txpinterface == 'admin' ) {
 				$log[] = mem_self_gTxt('log_pref_failed', array('{name}'=>'mem_self_newuser_priv','{error}'=>mysql_error()));
 			}
 		} else {
-			if ($rs['html'] != 'priv_levels')
-				safe_update('txp_prefs',"html='priv_levels'","name='mem_self_new_user_priv'");
+			dmp($rs);
+			safe_update('txp_prefs',"html='priv_levels'","name='mem_self_new_user_priv'");
 			
-			$log[] = mem_self_gTxt('log_pref_exists', array('{name}'=>'mem_self_new_user_priv','{value}'=>$rs));
+			$log[] = mem_self_gTxt('log_pref_exists', array('{name}'=>'mem_self_new_user_priv','{value}' => $rs));
 		}
 
 		// create default registration form
@@ -1254,6 +1260,7 @@ function mem_self_user_count($atts)
 	
 	return doTag($count,$wraptag,$class);
 }
+
 
 
 
