@@ -30,6 +30,8 @@ function compile_plugin($file='') {
 
 	if (empty($file))
 		$file = $_SERVER['SCRIPT_FILENAME'];
+	
+	$dir = dirname($file);
 
 	if (!isset($plugin['name'])) {
 		$plugin['name'] = basename($file, '.php');
@@ -69,12 +71,27 @@ function compile_plugin($file='') {
 # ......................................................................
 EOF;
 
-	$body = trim(chunk_split(base64_encode(gzencode(serialize($plugin))), 72));
+	$gz_body = trim(chunk_split(base64_encode(gzencode(serialize($plugin))), 72));
+	$body = trim(chunk_split(base64_encode(serialize($plugin)), 72));
 
 	// to produce a copy of the plugin for distribution, load this file in a browser. 
 	header('Content-type: text/plain');
 
-	return $header."\n\n".$body;
+	$fp = fopen($dir.'/'.$plugin['name'].'.txt', 'w');
+	if ($fp)
+	{
+		fwrite($fp, $header."\n\n".$gz_body);
+		fclose($fp);
+	}
+
+	$fp = fopen($dir.'/'.$plugin['name'].'.raw.txt', 'w');
+	if ($fp)
+	{
+		fwrite($fp, $header."\n\n".$body);
+		fclose($fp);
+	}
+
+	return $header."\n\n".$gz_body;
 }
 
 ?>
