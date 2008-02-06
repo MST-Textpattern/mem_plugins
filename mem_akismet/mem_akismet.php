@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.1';
+$plugin['version'] = '0.2';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Akismet comment filtering for Textpattern';
@@ -76,6 +76,8 @@ if (!isset($prefs['mem_akismet_api_key'])) {
 }
 
 if (@txpinterface == 'admin') {
+	add_privs('mem_akismet','1');
+
 	register_callback('mem_akismet_uninstall', 'mem_akismet','uninstall');
 	
 	function mem_akismet_uninstall()
