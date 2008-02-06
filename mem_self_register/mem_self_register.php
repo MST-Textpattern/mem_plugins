@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_self_register';
 
-$plugin['version'] = '0.9';
+$plugin['version'] = '0.9.1';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'User self registration. Read the help to install.';
@@ -23,6 +23,8 @@ if (0) {
 h2. User Self Registration
 
 h3. Installation
+
+p. The plugin mem_form is required.
 
 p. "Start Install Wizard":./index.php?event=self-reg&step=preinstall&area=admin
 
@@ -265,18 +267,17 @@ function mem_self_gTxt($what,$args = array())
 	return $str;
 }
 
-global $event, $dbversion;
+global $event, $levels;
 
-if (!isset($event)) $event = '';
 
-if ($event != 'admin') {
-	
-	if (!empty($dbversion) && version_compare($dbversion, '4.0.5', '>'))
-		include_once txpath.'/lib/txplib_admin.php';
+if (txpinterface == 'public' or $event != 'admin') 
+{
+	if (file_exists( txpath.'/lib/txplib_admin.php' ))
+	{
+		require_once txpath.'/lib/txplib_admin.php';
+	}
 
 	require_once txpath.'/include/txp_admin.php';
-
-	global $levels;
 
 	if (empty($levels))
 	{
@@ -463,7 +464,6 @@ if ( @txpinterface == 'admin' ) {
 				$log[] = mem_self_gTxt('log_pref_failed', array('{name}'=>'mem_self_newuser_priv','{error}'=>mysql_error()));
 			}
 		} else {
-			dmp($rs);
 			safe_update('txp_prefs',"html='priv_levels'","name='mem_self_new_user_priv'");
 			
 			$log[] = mem_self_gTxt('log_pref_exists', array('{name}'=>'mem_self_new_user_priv','{value}' => $rs));
