@@ -185,8 +185,8 @@ p. Example for logged in user
 ////////////////////////////////////////////////////////////
 require_plugin('mem_form');
 
+// MLP
 global $mem_self_lang;
-
 if (!is_array($mem_self_lang))
 {
 	$mem_self_lang = array(
@@ -237,8 +237,6 @@ function mem_self_enumerate_strings($event , $step='' , $pre=0)
 				);
 	return $r;
 }
-
-
 function mem_self_gTxt($what,$args = array())
 {
 	global $mem_self_lang, $textarray;
@@ -697,7 +695,7 @@ EOF;
 }
 
 
-
+/** Returns the name of the user table (without PFXS) */
 function mem_get_user_table_name() {
 	global $prefs;
 	
@@ -716,6 +714,7 @@ function mem_get_user_table_name() {
 	return $table_name;
 }
 
+/** SQL string builder for non-standard fields */
 function mem_get_extra_user_columns_insert_string() {
 	$xtra_columns = mem_get_extra_user_columns();
 
@@ -745,6 +744,7 @@ function mem_get_extra_user_columns_insert_string() {
 	return $xtra;
 }
 
+/** Diff user table and return non-standard columns */
 function mem_get_extra_user_columns()
 {
 	static $default_columns = array('user_id','name','pass','RealName','email','privs','last_access','nonce');
@@ -1084,8 +1084,6 @@ function mem_self_password_form_submit()
 
 }
 
-
-
 register_callback('mem_self_user_edit_submit','mem_form.submit');
 register_callback('mem_self_register_defaults','mem_form.defaults');
 
@@ -1098,7 +1096,7 @@ function mem_self_register_defaults()
 {
 	global $txp_user, $ign_user, $mem_form_type, $mem_profile;
 
-//	if ($mem_form_type != 'mem_self_user_edit') return;
+	if ($mem_form_type != 'mem_self_user_edit') return;
 
 	$user = isset($ign_user) ? $ign_user : $txp_user;
 
