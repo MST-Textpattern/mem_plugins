@@ -77,14 +77,14 @@ EOF;
 	// to produce a copy of the plugin for distribution, load this file in a browser. 
 	header('Content-type: text/plain');
 
-	$fp = fopen($dir.'/'.$plugin['name'].'.txt', 'w');
+	$fp = fopen($dir.'/'.$plugin['name'].'.gz.txt', 'w');
 	if ($fp)
 	{
 		fwrite($fp, $header."\n\n".$gz_body);
 		fclose($fp);
 	}
 
-	$fp = fopen($dir.'/'.$plugin['name'].'.raw.txt', 'w');
+	$fp = fopen($dir.'/'.$plugin['name'].'.txt', 'w');
 	if ($fp)
 	{
 		fwrite($fp, $header."\n\n".$body);
