@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 // $Rev$ $LastChangedDate$
-$plugin['version'] = '0.3';
+$plugin['version'] = '0.4';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -1382,8 +1382,10 @@ function mem_form_default($key,$val=NULL)
 {
 	global $mem_form_default;
 	
-	if (is_array($key)) {
-		foreach ($key as $k=>$v) {
+	if (is_array($key)) 
+	{
+		foreach ($key as $k=>$v) 
+		{
 			mem_form_default($k,$v);
 		}
 		return;
@@ -1391,7 +1393,8 @@ function mem_form_default($key,$val=NULL)
 	
 	$name = mem_form_label2name($key);
 	
-	if ($val == NULL) {
+	if ($val == NULL) 
+	{
 		return (isset($mem_form_default[$name]) ? $mem_form_default[$name] : false);
 	}
 	
