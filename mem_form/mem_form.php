@@ -437,7 +437,7 @@ function mem_form($atts, $thing='')
 				unset($mem_form_error);
 				$mem_form_error[] = mem_form_gTxt('form_used');
 				$renonce = true;
-				$_POST = array();
+
 				$_POST['mem_form_submit'] = TRUE;
 				$_POST['mem_form_id'] = $mem_form_id;
 				$_POST['mem_form_nonce'] = $nonce;
@@ -469,7 +469,6 @@ function mem_form($atts, $thing='')
 	}
 	elseif (mem_form_error())
 	{
-		
 		if ($show_error or !$show_input)
 		{
 			$out .= mem_form_display_error();
@@ -1507,7 +1506,6 @@ function &get_mem_form_evaluator()
 	}
 	return $instance;
 }
-
 
 # --- END PLUGIN CODE ---
 
