@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 // $Rev$ $LastChangedDate$
-$plugin['version'] = '0.4.1';
+$plugin['version'] = '0.5';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -102,6 +102,20 @@ p(tag-summary). This will output an HTML text input field and validates the subm
 * %(atts-name)max% %(atts-type)int% Max character length.
 * %(atts-name)min% %(atts-type)int% Min character length.
 * %(atts-name)size% %(atts-type)int% Size of input field.
+
+h3(tag#mem_form_file). mem_form_file
+
+p(tag-summary). This will output an HTML file input field.
+
+*(atts) %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
+* %(atts-name)name% %(atts-type)string% Input field name.
+* %(atts-name)class% %(atts-type)string% CSS class name.
+* %(atts-name)break% %(atts-type)string% Separator between label tag and input tag.
+* %(atts-name)no_replace% %(atts-type)int% Specifies whether a user can upload another file and replace the existing file that will be submitted on successful completion of the form. If "1", the file input field will be replaced with details about the already uploaded file.
+* %(atts-name)required% %(atts-type)int% Specifies if input is required.
+* %(atts-name)size% %(atts-type)int% Size of input field.
+* %(atts-name)max_file_size% %(atts-type)int% Maximum size for the uploaded file. Checked server-side.
+* %(atts-name)accept% %(atts-type)string% The HTML file input field's "accept" argument that specifies which file types the field should permit.
 
 h3(tag#mem_form_hidden). mem_form_hidden
 
@@ -401,6 +415,7 @@ function mem_form($atts, $thing='')
 		'redirect'	=> '',
 		'redirect_form'	=> '',
 		'class'		=> 'memForm',
+		'enctype'	=> '',
 		'file_accept'	=> '',
 		'max_file_size'	=> $file_max_upload_size,
 		'form_expired_msg' => mem_form_gTxt('form_expired'),
@@ -414,7 +429,6 @@ function mem_form($atts, $thing='')
 		return '';
 	}
 	$out = '';
-
 
 	$mem_form_type = $type;
 	
@@ -570,7 +584,9 @@ END;
 		
 		$class = htmlspecialchars($class);
 		
-		return '<form method="post"'.((!$show_error and $mem_form_error) ? '' : ' id="mem'.$mem_form_id.'"').' class="'.$class.'" action="'.htmlspecialchars(serverSet('REQUEST_URI')).'#mem'.$mem_form_id.'"'.$file_accept.'>'.
+		$enctype = !empty($enctype) ? ' enctype="'.$enctype.'"' : '';
+		
+		return '<form method="post"'.((!$show_error and $mem_form_error) ? '' : ' id="mem'.$mem_form_id.'"').' class="'.$class.'" action="'.htmlspecialchars(serverSet('REQUEST_URI')).'#mem'.$mem_form_id.'"'.$file_accept.$enctype.'>'.
 			( $label ? n.'<fieldset>' : n.'<div>' ).
 			( $label ? n.'<legend>'.htmlspecialchars($label).'</legend>' : '' ).
 			$out.
@@ -679,77 +695,122 @@ function mem_form_text($atts)
 
 function mem_form_file($atts)
 {
-	global $mem_form_submit, $mem_form_error, $mem_form_default, $file_max_upload_size;
+	global $mem_form_submit, $mem_form_error, $mem_form_default, $file_max_upload_size, $tempdir;
 	
 	extract(mem_form_lAtts(array(
-		'break'		=> ' ',
+		'break'		=> br,
 		'isError'	=> '',
 		'label'		=> mem_form_gTxt('file'),
 		'name'		=> '',
 		'class'		=> 'memFile',
-		'default'	=> '',
 		'size'		=> '',
 		'accept'	=> '',
+		'no_replace' => 1,
 		'max_file_size'	=> $file_max_upload_size,
 		'required'	=> 1
 	), $atts));
+
+	$fname = ps('file_'.$name);
+	$frealname = ps('file_info_'.$name.'_name');
+	$ftype = ps('file_info_'.$name.'_type');
+
 	
 	if (empty($name)) $name = mem_form_label2name($label);
-		
+
+	$out = '';
+
 	if ($mem_form_submit)
 	{
-		$hlabel = empty($label) ? htmlspecialchars($name) : htmlspecialchars($label);
+		
+		if (!empty($fname))
+		{
+			// see if user uploaded a different file to replace already uploaded
+			if (isset($_FILES[$name]) && !empty($_FILES[$name]['tmp_name']))
+			{
+				echo ' replacing file ';
+				// unlink last temp file
+				if (file_exists($fname) && substr_compare($fname, $tempdir, 0, strlen($tempdir), 1)==0)
+					unlink($fname);
+				
+				$fname = '';
+			}
+			else
+			{
+				// pass through already uploaded filename
+				mem_form_store($name, $label, array('tmp_name'=>$fname, 'name' => $frealname, 'type' => $ftype));
+				$out .= "<input type='hidden' name='file_".$name."' value='".htmlspecialchars($fname)."' />"
+						. "<input type='hidden' name='file_info_".$name."_name' value='".htmlspecialchars($frealname)."' />"
+						. "<input type='hidden' name='file_info_".$name."_type' value='".htmlspecialchars($ftype)."' />";
+			}
+		}
 
-		$fname = $_FILES[$name]['tmp_name'];
-
-		switch ($_FILES[$name]['error']) {
-			case UPLOAD_ERR_OK:
-				if (is_uploaded_file($fname) and $max_file_size >= filesize($fname))
-					mem_form_store($name, $label, $_FILES[$name]);
-				elseif (!is_uploaded_file($fname)) {
-					$mem_form_error[] = mem_form_gTxt('error_file_failed', array('{label}'=>$hlabel));
+		if (empty($fname))
+		{
+			$hlabel = empty($label) ? htmlspecialchars($name) : htmlspecialchars($label);
+	
+			$fname = $_FILES[$name]['tmp_name'];
+	
+			switch ($_FILES[$name]['error']) {
+				case UPLOAD_ERR_OK:
+					if (is_uploaded_file($fname) and $max_file_size >= filesize($fname))
+						mem_form_store($name, $label, $_FILES[$name]);
+					elseif (!is_uploaded_file($fname)) {
+						$mem_form_error[] = mem_form_gTxt('error_file_failed', array('{label}'=>$hlabel));
+						$err = 1;
+					}
+					else {
+						$mem_form_error[] = mem_form_gTxt('error_file_size', array('{label}'=>$hlabel));
+						$err = 1;
+					}
+						
+					break;
+	
+				case UPLOAD_ERR_NO_FILE:
+					if ($required) {
+						$mem_form_error[] = mem_form_gTxt('field_missing', array('{label}'=>$hlabel));
+						$err = 1;
+					}
+					break;
+	
+				case UPLOAD_ERR_EXTENSION:
+					$mem_form_error[] = mem_form_gTxt('error_file_extension', array('{label}'=>$hlabel));
 					$err = 1;
-				}
-				else {
+					break;
+	
+				case UPLOAD_ERR_INI_SIZE:
+				case UPLOAD_ERR_FORM_SIZE:
 					$mem_form_error[] = mem_form_gTxt('error_file_size', array('{label}'=>$hlabel));
 					$err = 1;
-				}
+					break;
 					
-				break;
-
-			case UPLOAD_ERR_NO_FILE:
-				if ($required) {
-					$mem_form_error[] = mem_form_gTxt('field_missing', array('{label}'=>$hlabel));
+				default:
+					$mem_form_error[] = mem_form_gTxt('error_file_failed', array('{label}'=>$hlabel));
 					$err = 1;
-				}
-				break;
-
-			case UPLOAD_ERR_EXTENSION:
-				$mem_form_error[] = mem_form_gTxt('error_file_extension', array('{label}'=>$hlabel));
-				$err = 1;
-				break;
-
-			case UPLOAD_ERR_INI_SIZE:
-			case UPLOAD_ERR_FORM_SIZE:
-				$mem_form_error[] = mem_form_gTxt('error_file_size', array('{label}'=>$hlabel));
-				$err = 1;
-				break;
-				
-			default:
-				$mem_form_error[] = mem_form_gTxt('error_file_failed', array('{label}'=>$hlabel));
-				$err = 1;
-				break;
+					break;
+			}
+			
+			if ($err)
+			{
+				$isError = 'errorElement';
+			}
+			else 
+			{
+				// store as a txp tmp file to be used later
+				$fname = get_uploaded_file($fname);
+				mem_form_store($name, $label, array('tmp_name'=>$fname, 'name' => $frealname, 'type' => $ftype));
+				$out .= "<input type='hidden' name='file_".$name."' value='".htmlspecialchars($fname)."' />"
+						. "<input type='hidden' name='file_info_".$name."_name' value='".htmlspecialchars($_FILES[$name]['name'])."' />"
+						. "<input type='hidden' name='file_info_".$name."_type' value='".htmlspecialchars($_FILES[$name]['type'])."' />";
+			}
 		}
-		
-		if ($err)
-			$isError = 'errorElement';
 	}
 	else
 	{
-		if (isset($mem_form_default[$name]))
-			$value = $mem_form_default[$name];
-		else
-			$value = $default;
+// no default needed
+//		if (isset($mem_form_default[$name]))
+//			$value = $mem_form_default[$name];
+//		else
+//			$value = $default;
 	}
 	
 	$memRequired = $required ? 'memRequired' : '';
@@ -758,8 +819,19 @@ function mem_form_file($atts)
 	$size = ($size) ? ' size="'.$size.'"' : '';
 	$accept = (!empty($accept) ? ' accept="'.$accept.'"' : '');
 	
-    return '<label for="'.$name.'" class="'.$class.' '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
-		'<input type="'.($password ? 'password' : 'text').'" id="'.$name.'" class="'.$class.' '.$memRequired.$isError.'" name="'.$name.'" value="'.htmlspecialchars($value).'"'.$size.' />';
+
+	$field_out = '<label for="'.$name.'" class="'.$class.' '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break;
+
+	if (!empty($frealname) && $no_replace)
+	{
+		$field_out .= '<div id="'.$name.'">'.htmlspecialchars($frealname) . ' <span id="'.$name.'_ftype">('. htmlspecialchars($ftype).')</span></div>';
+	}
+	else
+	{
+		$field_out .= '<input type="file" id="'.$name.'" class="'.$class.' '.$memRequired.$isError.'" name="'.$name.'"' .$size.' />';
+	}
+
+  return $out.$field_out;		
 }
 
 function mem_form_textarea($atts, $thing='')
