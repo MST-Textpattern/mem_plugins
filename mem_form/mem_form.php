@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 // $Rev$ $LastChangedDate$
-$plugin['version'] = '0.5';
+$plugin['version'] = '0.5.1';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -77,6 +77,8 @@ p(tag-summary). This tag will create an HTML form and contains all of the proces
 * %(atts-name)thanks% %(atts-type)string% Message to display to user upon successful form submission.
 * %(atts-name)redirect% %(atts-type)url% URL to redirect upon successful form submission. Overrides "thanks" and "thanks_form".
 * %(atts-name)redirect_form% %(atts-type)string% Name of a form that will be parsed as displayed to the user on a redirect. The string "_{uri}_" will be replaced with the redirect url.
+* %(atts-name)enctype% %(atts-type)string% HTML encoding type used when the form is submitted. @enctype="multipart/form-data"@ is required when using mem_form_file.
+
 
 h3(tag#mem_form_checkbox). mem_form_checkbox
 
@@ -105,7 +107,7 @@ p(tag-summary). This will output an HTML text input field and validates the subm
 
 h3(tag#mem_form_file). mem_form_file
 
-p(tag-summary). This will output an HTML file input field.
++p(tag-summary). This will output an HTML file input field. You must add the @enctype="multipart/form-data"@ attribute to your enclosing mem_form for this to work.
 
 *(atts) %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
 * %(atts-name)name% %(atts-type)string% Input field name.
@@ -720,8 +722,7 @@ function mem_form_file($atts)
 	$out = '';
 
 	if ($mem_form_submit)
-	{
-		
+	{		
 		if (!empty($fname))
 		{
 			// see if user uploaded a different file to replace already uploaded
@@ -749,20 +750,22 @@ function mem_form_file($atts)
 			$hlabel = empty($label) ? htmlspecialchars($name) : htmlspecialchars($label);
 	
 			$fname = $_FILES[$name]['tmp_name'];
-	
+			$err = 0;
+
 			switch ($_FILES[$name]['error']) {
 				case UPLOAD_ERR_OK:
 					if (is_uploaded_file($fname) and $max_file_size >= filesize($fname))
 						mem_form_store($name, $label, $_FILES[$name]);
 					elseif (!is_uploaded_file($fname)) {
-						$mem_form_error[] = mem_form_gTxt('error_file_failed', array('{label}'=>$hlabel));
-						$err = 1;
+						if ($required) {
+							$mem_form_error[] = mem_form_gTxt('error_file_failed', array('{label}'=>$hlabel));
+							$err = 1;
+						}
 					}
 					else {
 						$mem_form_error[] = mem_form_gTxt('error_file_size', array('{label}'=>$hlabel));
 						$err = 1;
 					}
-						
 					break;
 	
 				case UPLOAD_ERR_NO_FILE:
@@ -788,7 +791,7 @@ function mem_form_file($atts)
 					$err = 1;
 					break;
 			}
-			
+
 			if ($err)
 			{
 				$isError = 'errorElement';
