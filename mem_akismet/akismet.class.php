@@ -1,6 +1,6 @@
 <?php
 /**
- * 01.26.2006 12:29:28est
+ * 01.07.2008 22:32:28est
  * 
  * Akismet PHP4 class
  * 
@@ -16,7 +16,7 @@
  *
  *    $akismet = new Akismet('http://www.yourdomain.com/', 'YOUR_WORDPRESS_API_KEY', $comment);
  *
- *    if($akismet->isError()) {
+ *    if($akismet->errorsExist()) {
  *        echo"Couldn't connected to Akismet server!";
  *    } else {
  *        if($akismet->isSpam()) {
@@ -28,8 +28,8 @@
  * </code>
  * 
  * @author Bret Kuhns {@link www.miphp.net}
- * @link http://www.miphp.net/blog/view/php4_akismet_class/
- * @version 0.3.3
+ * @link http://www.miphp.net/blog/view/new_akismet_class/
+ * @version 0.3.4
  * @license http://www.opensource.org/licenses/mit-license.php MIT License
  */
 
@@ -221,25 +221,12 @@ class Akismet extends AkismetObject {
 	 * @param	String	$blogUrl	The URL to your own blog
 	 * @param 	String	$apiKey		Your wordpress API key
 	 * @param 	String[]	$comment	A formatted comment array to be examined by the Akismet service
+	 * @return	Akismet
 	 */
-	function Akismet($blogUrl, $apiKey, $comment) {
+	function Akismet($blogUrl, $apiKey, $comment = array()) {
 		$this->blogUrl = $blogUrl;
 		$this->apiKey  = $apiKey;
-		
-		// Populate the comment array with information needed by Akismet
-		$this->comment = $comment;
-		$this->_formatCommentArray();
-		
-		if(!isset($this->comment['user_ip'])) {
-			$this->comment['user_ip'] = ($_SERVER['REMOTE_ADDR'] != getenv('SERVER_ADDR')) ? $_SERVER['REMOTE_ADDR'] : getenv('HTTP_X_FORWARDED_FOR');
-		}
-		if(!isset($this->comment['user_agent'])) {
-			$this->comment['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
-		}
-		if(!isset($this->comment['referrer'])) {
-			$this->comment['referrer'] = $_SERVER['HTTP_REFERER'];
-		}
-		$this->comment['blog'] = $blogUrl;
+		$this->setComment($comment);
 		
 		// Connect to the Akismet server and populate errors if they exist
 		$this->http = new AkismetHttpClient($this->akismetServer, $blogUrl, $apiKey);
@@ -287,6 +274,31 @@ class Akismet extends AkismetObject {
 	
 	
 	/**
+	 * Manually set the comment value of the instantiated object.
+	 *
+	 * @param	Array	$comment
+	 * @return	void
+	 */
+	function setComment($comment) {
+		$this->comment = $comment;
+		if(!empty($comment)) {
+			$this->_formatCommentArray();
+			$this->_fillCommentValues();
+		}
+	}
+	
+	
+	/**
+	 * Returns the current value of the object's comment array.
+	 *
+	 * @return	Array
+	 */
+	function getComment() {
+		return $this->comment;
+	}
+	
+	
+	/**
 	 * Check with the Akismet server to determine if the API key is valid
 	 *
 	 * @access	Protected
@@ -320,6 +332,27 @@ class Akismet extends AkismetObject {
 				$this->comment[$long] = $this->comment[$short];
 				unset($this->comment[$short]);
 			}
+		}
+	}
+	
+	
+	/**
+	 * Fill any values not provided by the developer with available values.
+	 *
+	 * @return	void
+	 */
+	function _fillCommentValues() {
+		if(!isset($this->comment['user_ip'])) {
+			$this->comment['user_ip'] = ($_SERVER['REMOTE_ADDR'] != getenv('SERVER_ADDR')) ? $_SERVER['REMOTE_ADDR'] : getenv('HTTP_X_FORWARDED_FOR');
+		}
+		if(!isset($this->comment['user_agent'])) {
+			$this->comment['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
+		}
+		if(!isset($this->comment['referrer'])) {
+			$this->comment['referrer'] = $_SERVER['HTTP_REFERER'];
+		}
+		if(!isset($this->comment['blog'])) {
+			$this->comment['blog'] = $this->blogUrl;
 		}
 	}
 	
