@@ -75,6 +75,7 @@ function mem_if($atts,$thing='')
 		'negate'	=> '0',
 		'page'		=> '',
 		'section'	=> '',
+		'ip'			=> '',
 		'class'		=> __FUNCTION__,
 		'wraptag'	=> '',
 	),$atts));
@@ -101,6 +102,8 @@ function mem_if($atts,$thing='')
 		$cond &= in_array($GLOBALS['p'],split(',',$page));
 	if (!empty($section))
 		$cond &= in_array($GLOBALS['s'],split(',',$section));
+	if (!empty($ip))
+		$cond &= in_array( $_SERVER['REMOTE_ADDR'], split(',', $ip) );
 	
 	if ($negate=='1')
 		$cond = !$cond;
@@ -225,6 +228,7 @@ function mem_case($atts,$thing='') {
 	
 	return $out;
 }
+
 # --- END PLUGIN CODE ---
 
 ?>
