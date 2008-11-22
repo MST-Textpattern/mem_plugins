@@ -8,7 +8,7 @@
 
 // Plugin name is optional.  If unset, it will be extracted from the current
 // file name. Uncomment and edit this line to override:
-# $plugin['name'] = 'abc_plugin';
+$plugin['name'] = 'mem_templates';
 
 // 0 = Plugin help is in Textile format, no raw HTML allowed (default).
 // 1 = Plugin help is in raw HTML.  Not recommended.
