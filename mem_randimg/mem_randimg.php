@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_randimg';
 
-$plugin['version'] = '0.3';
+$plugin['version'] = '0.4';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Displays a random image from the specified categories.';
@@ -20,7 +20,7 @@ if (0) {
 ?>
 # --- BEGIN PLUGIN HELP ---
 
-<p>Displays a random image from the specified categories and populates the given tempalte.</p>
+<p>Displays a random image from the specified categories and populates the given template.</p>
 
 <table>
 <tr>
@@ -82,19 +82,24 @@ if (0) {
 ////////////////////////////////////////////////////////////
 // Plugin mem_randimg
 // Author: Michael Manfre (http://manfre.net/)
-// Revisions: 
-//
 ////////////////////////////////////////////////////////////
 
-function mem_randimg($atts) {
+function mem_randimg($atts, $thing='') {
 	global $txpcfg,$path_from_root,$img_dir;
 	extract($txpcfg);
 
 	if(is_array($atts)) extract($atts);
 
-	if(!empty($form)) {
+	if (!empty($thing))
+	{
+		$Form = $thing;
+	}
+	else if (!empty($form))
+	{
 		$Form = fetch('Form','txp_form','name',$form);
-	} else {
+	}
+	else
+	{
 		$Form = '<txp:mem_img />';
 	}
 	
@@ -111,7 +116,8 @@ function mem_randimg($atts) {
 	$qparts = array(
 		(!empty($categories)) ? $categories : '1',
 		"order by",
-		"rand()"
+		"rand()",
+		"limit 1"
 	);
 	
 	$out = '';
@@ -124,19 +130,22 @@ function mem_randimg($atts) {
 		$img_url = $path_from_root.$img_dir.'/'.$id.$ext;
 		$img_thumb_url = $path_from_root.$img_dir.'/'.$id.'t'.$ext;
 		
+		$pairs = array(
+			"<txp:mem_img />"	=>	'<img src="'.$img_url.'" alt="'.$alt.'" style="height:'.$h.';width:'.$w.'" />',
+			"<txp:mem_img_url />"	=>	$img_url,
+			"<txp:mem_img_thumbnail />"	=>	'<img src="'.$img_thumb_url.'" alt="'.$alt.'" style="height:'.$h.';width:'.$w.'" />',
+			"<txp:mem_img_thumbnail_url />"	=>	$img_thumb_url,
+			"<txp:mem_img_caption />"	=>	$caption,
+			"<txp:mem_img_alt />"	=>	$alt,
+			"<txp:mem_img_category />"	=>	$category,
+			"<txp:mem_img_width />"	=>	$w,
+			"<txp:mem_img_height />"	=>	$h,
+			"<txp:mem_img_author />"	=>	$author,
+			"<txp:mem_img_date />"	=>	$date,			
+		);
 		
-		$out .= str_replace("<txp:mem_img />", '<img src="'.$img_url.'" alt="'.$alt.'" style="height:'.$h.';width:'.$w.'" />', $Form);
-		$out = str_replace("<txp:mem_img_url />", $img_url, $out);
-		$out = str_replace("<txp:mem_img_thumbnail />", '<img src="'.$img_thumb_url.'" alt="'.$alt.'" style="height:'.$h.';width:'.$w.'" />', $out);
-		$out = str_replace("<txp:mem_img_thumbnail_url />", $img_thumb_url, $out);
-		$out = str_replace("<txp:mem_img_caption />", $caption, $out);
-		$out = str_replace("<txp:mem_img_alt />", $alt, $out);
-		$out = str_replace("<txp:mem_img_category />", $category, $out);
-		$out = str_replace("<txp:mem_img_width />", $w, $out);
-		$out = str_replace("<txp:mem_img_height />", $h, $out);
-		$out = str_replace("<txp:mem_img_author />", $author, $out);
-		$out = str_replace("<txp:mem_img_date />", $date, $out);
-	}		
+		$out = str_replace( array_keys($pairs), array_values($pairs), $Form);
+	}
 	
 	return $out;
 }
