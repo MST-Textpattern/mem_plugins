@@ -133,7 +133,7 @@ function mem_randimg($atts, $thing='') {
 		$pairs = array(
 			"<txp:mem_img />"	=>	'<img src="'.$img_url.'" alt="'.$alt.'" style="height:'.$h.'px;width:'.$w.'px" />',
 			"<txp:mem_img_url />"	=>	$img_url,
-			"<txp:mem_img_thumbnail />"	=>	'<img src="'.$img_thumb_url.'" alt="'.$alt.'" style="height:'.$h.'px;width:'.$w.'px" />',
+			"<txp:mem_img_thumbnail />"	=>	'<img src="'.$img_thumb_url.'" alt="'.$alt.'" />',
 			"<txp:mem_img_thumbnail_url />"	=>	$img_thumb_url,
 			"<txp:mem_img_caption />"	=>	$caption,
 			"<txp:mem_img_alt />"	=>	$alt,
