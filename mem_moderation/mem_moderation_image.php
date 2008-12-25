@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation_image';
 
-$plugin['version'] = '0.6';
+$plugin['version'] = '0.7';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Moderation plugin that allows user to submit images.';
@@ -24,12 +24,15 @@ h1. Image Moderation
 
 p. This moderation plugin allows users to submit images in to the moderation queue. If the plugin mem_moderation_article is installed, then these images can be wrapped in a new article.
 
-h1. Installation
+h2(section license). License
 
-p. This plugin requires plugins mem_moderation and mem_admin_parse to be installed and enabled to function.
+p. This plugin is licensed under the "GPLv2":http://www.fsf.org/licensing/licenses/info/GPLv2.html.
+
+h2(section installation). Installation
+
+p. This plugin requires the plugins mem_form version 0.5.2+, mem_admin_parse and mem_moderation to function properly.
 
 p. "Start Install Wizard":./index.php?event=image_moderate&step=preinstall
-
 
 # --- END PLUGIN HELP ---
 <?php
@@ -40,19 +43,16 @@ p. "Start Install Wizard":./index.php?event=image_moderate&step=preinstall
 ////////////////////////////////////////////////////////////
 // Plugin 
 // Author: Michael Manfre (http://manfre.net/)
-// Revisions: 
-//
 ////////////////////////////////////////////////////////////
 
 define('MEM_MOD_ARTICLE_TMP_FILE_PREFIX', 'txpmem_');
 
-
 global $event, $extensions, $path_to_site, $img_dir, $prefs, $image_vars;
 
 require_plugin('mem_moderation');
+require_plugin('mem_form');
 
 $image_vars = array('id','name','category','ext','w','h','alt','caption','date','author','tmpfile','tmpfilename','date_taken','keywords','note');
-
 
 
 if (@$prefs['mod_image_wrap_with_article']) {
@@ -72,14 +72,15 @@ if (@txpinterface!='admin' || (@txpinterface=='admin' and ($event=='moderate' or
 }
 
 //--------------------------------------------------------------------
-if (@txpinterface == 'admin') {
-
+if (@txpinterface == 'admin')
+{
 	register_callback('mem_moderation_image_moderate','image_moderate','', 1);
 	add_privs('moderation.image','1,2,3,4,5,6');
 	
 	if ($event == 'image_moderate' or $event == 'moderate') {
 
-		function mem_moderation_image_uninstall() {
+		function mem_moderation_image_uninstall()
+		{
 			$log = array();
 			
 			if (safe_delete('txp_prefs',"name LIKE 'mod_image_%'"))
@@ -90,58 +91,64 @@ if (@txpinterface == 'admin') {
 			return tag("UnInstall Log",'h2').doWrap($log,'ul','li');
 		}
 
-		function mem_moderation_image_preinstall() {
+		function mem_moderation_image_preinstall()
+		{
 			return mem_moderation_image_install();
 		}
 		
-		function mem_moderation_image_install() {
+		function mem_moderation_image_install()
+		{
+			global $prefs;
 			$log = array();
 			
 			// remove old values
 			safe_delete('txp_prefs',"name LIKE 'modimg_%'");
 			
-			if (mem_get_pref('mod_image_wrap_with_article','val')===false) {
+			if (!isset($prefs['mod_image_wrap_with_article'])) {
 				mem_set_pref('mod_image_wrap_with_article','0','Moderation','1',0,'yesnoradio');
 				$log[] = 'Added preference mod_image_wrap_with_article';
 			}
-			if (mem_get_pref('mod_image_size_full','val')===false) {
+			if (!isset($prefs['mod_image_size_full'])) {
 				mem_set_pref('mod_image_size_full','640x480','Moderation','1');
 				$log[] = 'Added preference mod_image_size_full';
 			}
-			if (mem_get_pref('mod_image_wrap_default','val')===false) {
+			if (!isset($prefs['mod_image_wrap_default'])) {
 				mem_set_pref('mod_image_wrap_default','0','Moderation','1',0,'yesnoradio');
 				$log[] = 'Added preference mod_image_wrap_default';
 			}
-			if (mem_get_pref('mod_image_size_thumbnail','val')===false) {
+			if (!isset($prefs['mod_image_size_thumbnail'])) {
 				mem_set_pref('mod_image_size_thumbnail','160x120','Moderation','1');
 				$log[] = 'Added preference mod_image_size_thumbnail';
 			}
-			if (mem_get_pref('mod_image_thumbnail_crop','val')===false) {
+			if (!isset($prefs['mod_image_thumbnail_crop'])) {
 				mem_set_pref('mod_image_thumbnail_crop','0','Moderation','1',0,'yesnoradio');
 				$log[] = 'Added preference mod_image_thumbnail_crop';
 			}
 
-			if (mem_get_pref('mod_image_sharpen','val')===false) {
+			if (!isset($prefs['mod_image_sharpen'])) {
 				mem_set_pref('mod_image_sharpen','0','Moderation','1',0,'yesnoradio');
 				$log[] = 'Added preference mod_image_sharpen';
 			}
 
-			if (mem_get_pref('mod_image_quality','val')===false) {
+			if (!isset($prefs['mod_image_quality'])) {
 				mem_set_pref('mod_image_quality','80','Moderation','1');
 				$log[] = 'Added preference mod_image_quality';
 			}
-
 			
 			return tag("Install Log",'h2').doWrap($log,'ul','li');
 		}
 
-		function mem_image_moderate($event, $step) {
+		function mem_image_moderate($event, $step)
+		{
 			$msg='';
 
-			if ($step=='image_save' or $step=='image_update') {
+			if ($step=='image_save' or $step=='image_update')
+			{
 				// save changes
 				$msg = mem_image_save($step);
-			} else if ($step=='preinstall' || $step=='install') {
+			}
+			else if ($step=='preinstall' || $step=='install')
+			{
 				register_tab('extensions','image_moderate', mem_modimg_gTxt('image_moderate'));
 				echo pageTop('Image Moderation','');
 				
@@ -151,12 +158,16 @@ if (@txpinterface == 'admin') {
 					echo mem_moderation_image_install();
 				
 				return;
-			} else if ($step=='uninstall') {
+			}
+			else if ($step=='uninstall')
+			{
 				register_tab('extensions', 'image_moderate', mem_modimg_gTxt('image_moderate'));
 				echo pageTop('Image Moderation','');
 				echo mem_image_uninstall();
 				return;
-			} else {
+			}
+			else
+			{
 				register_tab('extensions', 'image_moderate', mem_modimg_gTxt('image_moderate'));
 				if ($step) {
 					$msg = "Step is '$step'";
@@ -178,7 +189,6 @@ function image_moderate_form()
 	return image_presenter('image',$data);
 }
 
-
 //register_callback('mem_mod_article_form_defaults', 'mem_form.defaults');
 register_callback('mem_moderation_image_form_display', 'mem_form.display','',1);
 register_callback('mem_moderation_image_form_submitted', 'mem_form.submit');
@@ -187,18 +197,21 @@ function mem_moderation_image_form($atts, $thing='')
 {
 	$atts = lAtts(array(
 		'form'	=>	'',
-	),$atts);
+	),$atts,0);
 	
 	$atts['type'] = 'mem_moderation_image';
+	$atts['enctype'] = 'multipart/form-data';
 
-	if (!empty($form)) {
+	if (!empty($form))
+	{
 		$thing = fetch_form($form);
 		unset($atts['form']);
 	}
 
 	$secrets = array();
 
-	foreach($secrets as $a) {
+	foreach($secrets as $a)
+	{
 		$thing .= '<txp:mem_form_secret name="'.$a.'" value="'.$$a.'" />';
 		unset($atts[$a]);
 	}
@@ -208,17 +221,16 @@ function mem_moderation_image_form($atts, $thing='')
 
 function mem_moderation_image_form_submitted()
 {
-	global $mem_form_type, $mem_form_values;
+	global $mem_form_type, $mem_form_values, $txp_user;
 	
 	if ($mem_form_type != 'mem_moderation_image')
 		return;
 
-	extract(gpsa($image_vars));
+	extract($mem_form_values);
 
-
-	$is_save = ps('mem_moderation_save');
-	$is_delete = ps('mem_moderation_delete');
-	$is_update = ps('mem_moderation_update') || ($is_save && ps('modid'));
+	$is_save = $action == 'mem_moderation_save';
+	$is_delete = $action == 'mem_moderation_delete';
+	$is_update = ($action == 'mem_moderation_update') || ($is_save && $modid);
 	
 	if ($is_update) 
 		$is_save = false;
@@ -226,19 +238,20 @@ function mem_moderation_image_form_submitted()
 	if ($is_delete)
 	{
 		if (remove_moderated_content($modid))
-			image_rejector('image', array('tmpfile'=>$tmpfilename));
+		{
+			mem_moderation_image_rejector('image', array('tmpfile'=>$tmpfilename));
+		}
 	}
 	elseif ($is_save || $is_update)
 	{
 		// get args
-		
 		if ($is_update)
 		{
-			
+			$msg = mem_image_save('image_update');
 		}
 		else
 		{
-			
+			$msg = mem_image_save('');			
 		}
 	}
 }
@@ -246,7 +259,6 @@ function mem_moderation_image_form_submitted()
 function modimg_form($atts,$thing='')
 {
 	global $step,$txp_user,$mem_mod_info,$mem_modimg_info,$image_vars;
-
 
 	extract(lAtts(array(
 		'isize'		=> 25,
@@ -311,7 +323,7 @@ function modimg_form($atts,$thing='')
 
 			$mem_mod_info = safe_row('*','txp_moderation',"`id`='".doSlash($modid)."'");
 
-			extract(decode_content($mem_mod_info['data']));
+			extract(mem_moderation_decode($mem_mod_info['data']));
 
 			$out .= @hInput('tmpfilename',$tmpfilename);
 			
@@ -320,9 +332,9 @@ function modimg_form($atts,$thing='')
 
 		$caption_area = '<textarea name="caption" cols="40" rows="7">'.$caption.'</textarea>';
 		$note_area = '<textarea name="note" cols="40" rows="4">'.@$mem_mod_info['desc'].'</textarea>';
-		$selects = event_category_popup("image", $category);
-		$selects_cat1 = category_popup("article_category1", @$article_category1);
-		$selects_cat2 = category_popup("article_category2", @$article_category2);
+		$selects = event_category_popup("image", $category, '');
+		$selects_cat1 = category_popup("article_category1", @$article_category1,'');
+		$selects_cat2 = category_popup("article_category2", @$article_category2,'');
 		$keywords_area = '<textarea name="article_keywords" class="mod_keywords_input">' . @$article_keywords . '</textarea>';
 		
 		$vals = array(
@@ -364,13 +376,14 @@ function modimg_form($atts,$thing='')
 // -------------------------------------------------------------
 function modimg_get_image_dimensions($thumbnail=false)
 {
+	global $prefs;
 	if ($thumbnail) {
-		$dim = mem_get_pref('mod_image_size_thumbnail','val');
+		$dim = $prefs['mod_image_size_thumbnail'];
 	
 		$w = 160;
 		$h = 120;
 	} else {
-		$dim = mem_get_pref('mod_image_size_full','val');
+		$dim = $prefs['mod_image_size_full'];
 	
 		$w = 640;
 		$h = 480;
@@ -396,28 +409,43 @@ function modimg_get_image_dimensions($thumbnail=false)
 function mem_image_save($step)
 {
 	ini_set('memory_limit', '32M');
-	global $txpcfg,$txpac,$extensions,$path_to_site,$txp_user,$ign_user,$mem_modimg_info, $image_vars;
-
-	$args = gpsa($image_vars);
-	
-	$inf=gps('mem_modimg_info_data');
-	
-	if (!empty($inf))
-	{
-		$varray = lAtts(decode_content($inf), $args);
-	}
-	else
-	{
-		$varray = $args;
-	}
-
-	$modid = gps('modid');
-	if (!empty($modid)) $varray['id'] = $id = $modid;
+	global $txpcfg,$txpac,$extensions,$path_to_site,$txp_user,$ign_user,$mem_modimg_info, $image_vars, $mem_form_values;
 
 	if (isset($ign_user)) $txp_user = $ign_user;
 
-	if($txpac['textile_links']) {
+	$is_mem_form = false;
+	
+	// determine caller
+	if (!empty($mem_form_values))
+	{
+		// public mem_form
+		$varray = $mem_form_values;
+		$is_mem_form = true;
+	}
+	else
+	{
+		$args = gpsa($image_vars);
+		
+		$inf=gps('mem_modimg_info_data');
+		
+		if (!empty($inf))
+		{
+			// admin mod form
+			$varray = lAtts(mem_moderation_decode($inf), $args);
+		}
+		else
+		{
+			// legacy
+			$varray = $args;
+		}
+	
+		$modid = gps('modid');
+	}
 
+	if (!empty($modid)) $varray['id'] = $id = $modid;
+
+	if($txpac['textile_links']) 
+	{
 		include_once $txpcfg['txpath'].'/lib/classTextile.php';
 		$textile = new Textile();
 
@@ -428,25 +456,35 @@ function mem_image_save($step)
 
 	$res = '';
 
-	if ($step=='image_update') {
+	if ($step=='image_update') 
+	{
 		if (update_moderated_content($id,$varray['note'],$varray)) 
 		{
-			$res = "Update link '$modid'";
-		} else {
-			$res = "Failed to update link '$modid'";
+			$res = "Update link '$id'";
+		}
+		else
+		{
+			$res = "Failed to update link '$id'";
 		}
 	} 
 	else 
 	{
-		$file = $_FILES['thefile']['tmp_name'];
-		$name = $_FILES['thefile']['name'];
+		if ($is_mem_form)
+		{
+			$file	= $mem_form_values['thefile']['tmp_name'];
+			$name	= $mem_form_values['thefile']['name'];
+		}
+		else
+		{
+			$file = $_FILES['thefile']['tmp_name'];
+			$name = $_FILES['thefile']['name'];
+	
+			$file = get_uploaded_file($file);
+	
+		}
 
-		$file = get_uploaded_file($file);
-
-		$varray['tmpfilename'] = MEM_MOD_ARTICLE_TMP_FILE_PREFIX . basename($file) . $_FILES['thefile']['name'];
-
+		$varray['tmpfilename'] = MEM_MOD_ARTICLE_TMP_FILE_PREFIX . basename($file) . $name;
 		$pending_file = $path_to_site . '/images/' . $varray['tmpfilename'];
-
 		list($w,$h,$extension) = getimagesize($file);
 
 		if ($extensions[$extension]) 
@@ -455,13 +493,9 @@ function mem_image_save($step)
 
 			if (class_exists('wet_thumb'))
 			{
-				$sharpen = mem_get_pref('mod_image_sharpen','val');
-				if ($sharpen == 1 || $sharpen === true)
-					$sharpen = true;
-				else
-					$sharpen = false;
+				$sharpen = ($prefs['mod_image_sharpen'] == 1 || $prefs['mod_image_sharpen'] === true);
 				
-				$quality = mem_get_pref('mod_image_quality','val');
+				$quality = $prefs['mod_image_quality'];
 				if ($quality === false || empty($quality) || !is_numeric($quality) || ($quality < 0 || $quality > 100))
 					$quality = 80;
 
@@ -491,18 +525,19 @@ function mem_image_save($step)
 				unset($t);
 			}
 			
-			if (shift_uploaded_file($file, $pending_file) != false) {
+			if (shift_uploaded_file($file, $pending_file) != false)
+			{
 				$varray['w'] = $w;
 				$varray['h'] = $h;
 
 				$varray['ext'] = $extensions[$extension];
-				$varray['name'] = substr($name,0,strrpos($name,'.')) . $extension;
+				$varray['name'] = substr($name,0,strrpos($name,'.')) . $varray['ext'];
 				$varray['tmpfile'] = $pending_file;
 				$varray['user'] = $txp_user;
 				$email = safe_field('email','txp_users',"name='".doSlash($txp_user)."'");
 
 				$res = submit_moderated_content('image',$email,$varray['note'],$varray);
-				
+
 				if ($res) {
 					$res = ''; //"Submitted Image '$res'";
 				} else {
@@ -531,7 +566,7 @@ function modimg_img($atts) {
 	if (is_array($mem_modimg_info))
 		extract($mem_modimg_info);
 	else if (is_array($mem_mod_info) and array_key_exists('data',$mem_mod_info))
-		extract(decode_content($mem_mod_info['data']));
+		extract(mem_moderation_decode($mem_mod_info['data']));
 
 	if (isset($tmpfilename) and !empty($tmpfilename))
 		return '<img src="'.hu.$img_dir.'/'.$tmpfilename.'"'.
@@ -541,14 +576,15 @@ function modimg_img($atts) {
 
 
 function mem_moderation_image_presenter($type,$data) {
-	global $img_dir,$image_vars;
+	global $img_dir,$image_vars,$prefs;
 	
-	$create_article = mem_get_pref('mod_image_wrap_with_article','val');
-	$wrap_default = mem_get_pref('mod_image_wrap_default','val');
+	$create_article = $prefs['mod_image_wrap_with_article'];
+	$wrap_default = $prefs['mod_image_wrap_default'];
 
 	$out = '';
 
-	if ($type=='image' and is_array($data)) {
+	if ($type=='image' and is_array($data)) 
+	{
 		extract(get_prefs());
 		
 		if (empty($data['article_annotate'])) $data['article_annotate'] = $comments_on_default;
@@ -558,6 +594,11 @@ function mem_moderation_image_presenter($type,$data) {
 		if (empty($data['article_user'])) $data['article_user'] = @$data['author'];
 		if (empty($data['article_warp_enabled'])) $data['article_wrap_enabled'] = $wrap_default;
 
+		$dimensions = getimagesize($data['tmpfile']);
+		
+		$data['w'] = $dimensions[0];
+		$data['h'] = $dimensions[1];
+		
 		extract($data);
 
 		if (!$article_annotate) {
@@ -567,10 +608,10 @@ function mem_moderation_image_presenter($type,$data) {
 		if (empty($article_annotateinvite))
 			$article_annotateinvite = $comments_default_invite;
 
-		$selects = event_category_popup("image", @$category);
+		$selects = event_category_popup("image", @$category, '');
 		$textarea = '<textarea name="caption" cols="40" rows="7" tabindex="4">'.htmlspecialchars(@$caption).'</textarea>';
 
-		$imgtag = '<img src="'.hu.$img_dir.'/'.$tmpfilename.'"'.' width="'.$w.'" height="'.$h.'" />';
+		$imgtag = '<img src="'.hu.$img_dir.'/'.$tmpfilename.'" width="'.$data['w'].'" height="'.$data['h'].'" />';
 
 		$out = startTable( 'edit' ) .
 				tr( tdcs( $imgtag, 2) ) .
@@ -595,13 +636,13 @@ function mem_moderation_image_presenter($type,$data) {
 					tr( tdcs( '<h3>'.gTxt('article') .'</h3>', 2) ) .
 					tr( fLabelCell( 'title' ) . fInputCell( 'article_title', $article_title, 1, 30 )) .
 					(empty($section_select) ? '' : tr( fLabelCell( 'section' ) . tda( $section_select ) )) .
-					tr( fLabelCell( 'categorize' ) . tda( category_popup("article_category1", @$article_category1) .br. category_popup("article_category2", @$article_category2) ) ) .
+					tr( fLabelCell( 'categorize' ) . tda( category_popup("article_category1", @$article_category1, '') .br. category_popup("article_category2", @$article_category2, '') ) ) .
 					tr( fLabelCell( 'status' ) . tda( selectInput('article_status', array(1=>'Draft',2=>'Hidden',3=>'Pending',4=>'Live',5=>'Sticky'),4) ) ) .
 					tr( fLabelCell( 'body' ) . tda( '<textarea name="article_body" cols="40" rows="7">'.htmlspecialchars($article_body).'</textarea>', ' valign="top"' ) ) .
 					tr( fLabelCell( 'annotate' ) . tda( yesnoRadio('article_annotate',$article_annotate) ) ) .
 					tr( fLabelCell( 'annotateinvite' ) . fInputCell( 'article_annotateinvite', $article_annotateinvite, 1, 30 )) .
 					tr( fLabelCell( 'keywords' ) . tda( '<textarea name="article_keywords" cols="40" rows="3">'.htmlspecialchars(@$article_keywords).'</textarea>', ' valign="top"' ) ) .
-					tr( fLabelCell( 'override_default_form' ) . tda(form_pop(@$article_override_form).popHelp('override_form'))) .
+					tr( fLabelCell( 'override_default_form' ) . tda(form_pop(@$article_override_form, '').popHelp('override_form'))) .
 					tr( fLabelCell( 'author' ) . fInputCell( 'article_user', $article_user, 1, 30 ));
 
 					'';
@@ -626,9 +667,24 @@ function mem_moderation_image_presenter($type,$data) {
 
 function mem_moderation_image_approver($type,$data)
 {
-	if ($type=='image' && is_array($data)) {
-		extract($data);
+	global $prefs;
+
+	if ($type=='image' && is_array($data))
+	{
 		
+		if (@empty($data['ext']))
+		{
+			$tmpname = $data['tmpfilename'];
+			$pos = strrpos($tmpname, '.');
+			
+			if ($pos !== false)
+			{
+				$data['ext'] = substr($tmpname, $pos, strlen($tmpname)-$pos);
+			}
+		}
+		
+		extract($data);
+
 		$rs_trans = safe_query("START TRANSACTION");
 		
 		// insert record
@@ -665,7 +721,7 @@ function mem_moderation_image_approver($type,$data)
 				return 'failed to insert image wrapper';
 			}
 		}
-		
+
 		// write file to images folder
 		$path = IMPATH.$id.$ext;
 		$tmpfile = IMPATH.$tmpfilename;
@@ -689,7 +745,7 @@ function mem_moderation_image_approver($type,$data)
 
 		// get thumbnail dimenions
 		list($t_width,$t_height) = modimg_get_image_dimensions(true);
-		$t_crop = mem_get_pref('mod_image_thumbnail_crop','val');
+		$t_crop = $prefs['mod_image_thumbnail_crop'];
 
 		$t = new txp_thumb( $id );
 		$t->crop = ($t_crop == '1');
@@ -717,7 +773,7 @@ function modimg_wrap_image($data)
 			$article_data[substr($key,8)] = $val;
 	}
 	
-	return mem_moderation_article_approver('article',$article_data);
+	return mem_article_approver('article',$article_data);
 }
 
 function mem_moderation_image_rejecter($type,$data)
