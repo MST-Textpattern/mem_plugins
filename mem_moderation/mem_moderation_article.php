@@ -761,6 +761,10 @@ function mem_article_approver($type,$data)
 		$incoming['Body'] = $incoming['body'];
 		$incoming['Excerpt'] = $incoming['excerpt'];
 		$incoming['publish_now'] = 1;
+		if (!isset($incoming['url_title']) )
+		{
+			$incoming['url_title'] = '';
+		}
 		
 		$incoming = textile_main_fields($incoming, $use_textile);
 
