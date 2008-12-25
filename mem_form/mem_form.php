@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 // $Rev$ $LastChangedDate$
-$plugin['version'] = '0.5.1';
+$plugin['version'] = '0.5.2';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -715,7 +715,6 @@ function mem_form_file($atts)
 	$fname = ps('file_'.$name);
 	$frealname = ps('file_info_'.$name.'_name');
 	$ftype = ps('file_info_'.$name.'_type');
-
 	
 	if (empty($name)) $name = mem_form_label2name($label);
 
@@ -728,7 +727,6 @@ function mem_form_file($atts)
 			// see if user uploaded a different file to replace already uploaded
 			if (isset($_FILES[$name]) && !empty($_FILES[$name]['tmp_name']))
 			{
-				echo ' replacing file ';
 				// unlink last temp file
 				if (file_exists($fname) && substr_compare($fname, $tempdir, 0, strlen($tempdir), 1)==0)
 					unlink($fname);
@@ -750,6 +748,8 @@ function mem_form_file($atts)
 			$hlabel = empty($label) ? htmlspecialchars($name) : htmlspecialchars($label);
 	
 			$fname = $_FILES[$name]['tmp_name'];
+			$frealname = $_FILES[$name]['name'];
+			$ftype = $_FILES[$name]['type'];
 			$err = 0;
 
 			switch ($_FILES[$name]['error']) {
@@ -1346,6 +1346,8 @@ function mem_form_radio($atts)
 
 function mem_form_submit($atts, $thing='')
 {
+	global $mem_form_submit;
+
 	extract(mem_form_lAtts(array(
 		'button'	=> 0,
 		'label'		=> mem_form_gTxt('save'),
@@ -1356,6 +1358,17 @@ function mem_form_submit($atts, $thing='')
 	$label = htmlspecialchars($label);
 	$name = htmlspecialchars($name);
 	$class = htmlspecialchars($class);
+
+	if ($mem_form_submit)
+	{
+		$value = ps($name);
+		
+		if (!empty($value) && $value == $label)
+		{
+			// save the clicked button value
+			mem_form_store($name, $label, $value);
+		}
+	}
 
 	if ($button or strlen($thing))
 	{
