@@ -75,7 +75,7 @@ if (@txpinterface!='admin' || (@txpinterface=='admin' and ($event=='moderate' or
 if (@txpinterface == 'admin')
 {
 	register_callback('mem_moderation_image_moderate','image_moderate','', 1);
-	add_privs('moderation.image','1,2,3,4,5,6');
+	add_privs('image_moderate','1,2,3');
 	
 	if ($event == 'image_moderate' or $event == 'moderate') {
 
