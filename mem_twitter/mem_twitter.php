@@ -14,7 +14,7 @@ $plugin['name'] = 'mem_twitter';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.1';
+$plugin['version'] = '0.2';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin will post to twitter whenever an article is published.';
@@ -111,7 +111,7 @@ if (txpinterface == 'admin')
 					require_once(txpath.'/publish/taghandlers.php');
 				}
 				
-				$t = new Twitter($mem_twitter_user, $mem_twitter_pass, 'mem_twitter');
+				$t = new Twitter($mem_twitter_user, $mem_twitter_pass, 'memtwitter');
 				$msg = empty($mem_twitter_msg) ? '{title} - {url}' : $mem_twitter_msg;
 				$msg = str_replace('{title}', $article['title'], $msg);
 
