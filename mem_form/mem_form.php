@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 // $Rev$ $LastChangedDate$
-$plugin['version'] = '0.5.2';
+$plugin['version'] = '0.5.3';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -1283,6 +1283,8 @@ function mem_form_hidden($atts, $thing='')
 		else if ($thing) 
 			$value = trim(parse($thing));
 	}
+	
+	$memRequired = $required ? 'memRequired' : '';
 	
 	return '<input type="hidden" class="'.$class.' '.$memRequired.$isError.' '.$name 
 			. '" name="'.$name.'" value="'.htmlspecialchars($value).'" />';
