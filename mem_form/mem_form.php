@@ -1494,7 +1494,7 @@ function mem_form_default($key,$val=NULL)
 
 
 
-function mem_form_mail($from,$reply,$to,$subject,$msg)
+function mem_form_mail($from,$reply,$to,$subject,$msg, $content_type='text/plain')
 {
 	global $prefs;
 	
@@ -1522,10 +1522,10 @@ function mem_form_mail($from,$reply,$to,$subject,$msg)
 
 	$headers = 'From: '.$from.
 		($reply ? ($sep.'Reply-To: '.$reply) : '').
-		$sep.'X-Mailer: Textpattern (mem_self_register)'.
+		$sep.'X-Mailer: Textpattern (mem_form)'.
 		$sep.'X-Originating-IP: '.mem_form_strip((!empty($_SERVER['HTTP_X_FORWARDED_FOR']) ? $_SERVER['HTTP_X_FORWARDED_FOR'].' via ' : '').$_SERVER['REMOTE_ADDR']).
 		$sep.'Content-Transfer-Encoding: 8bit'.
-		$sep.'Content-Type: text/plain; charset="'.$charset.'"';
+		$sep.'Content-Type: '.$content_type.'; charset="'.$charset.'"';
 	
 	return mail($to, $subject, $msg, $headers);
 }
