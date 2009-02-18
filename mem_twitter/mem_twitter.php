@@ -14,7 +14,7 @@ $plugin['name'] = 'mem_twitter';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.2';
+$plugin['version'] = '0.3';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin will post to twitter whenever an article is published.';
@@ -65,6 +65,9 @@ h3. mem_twitter_msg
 
 p. This is the message format that will be posted to twitter. The string will be parsed and all instances of "{url}" will be replaced with the url to the article. All instances of "{title}" will be replaced with the article title.
 
+h3. mem_twitter_exclude_sections
+
+p. A comma separate list of sections that should not post to twitter.
 
 # --- END PLUGIN HELP ---
 <?php
@@ -80,6 +83,8 @@ if (!isset($prefs['mem_twitter_pass']))
 	set_pref('mem_twitter_pass','', 'mem_twitter', 1, 'mem_twitter_password_input');
 if (!isset($prefs['mem_twitter_msg']))
 	set_pref('mem_twitter_msg', 'Blog Post: {title} - {url}', 'mem_twitter', 1, 'text_input');
+if (!isset($prefs['mem_twitter_exclude_sections']))
+	set_pref('mem_twitter_exclude_sections', '', 'mem_twitter', 1, 'text_input');
 
 if (txpinterface == 'admin')
 {
@@ -92,7 +97,7 @@ if (txpinterface == 'admin')
 
 	function mem_twitter_ping()
 	{
-		global $mem_twitter_user, $mem_twitter_pass, $mem_twitter_msg;
+		global $mem_twitter_user, $mem_twitter_pass, $mem_twitter_msg, $mem_twitter_exclude_sections;
 
 		// do nothing without a provided user/pass		
 		if (empty($mem_twitter_user) || empty($mem_twitter_pass))
@@ -102,7 +107,18 @@ if (txpinterface == 'admin')
 		
 		if (!empty($article_id))
 		{
-			$article = safe_row('ID, title, url_title, Section, unix_timestamp(Posted) as Posted', 'textpattern', "ID={$article_id}");
+			$exclude = split(',', $mem_twitter_exclude_sections);
+			
+			if (count($exclude) > 0)
+			{
+				$exclude = " AND Section NOT IN ('" . join("','", array_map('trim', $exclude)) . "')";
+			}
+			else
+				$exclude = '';
+			
+			$article = safe_row('ID, title, url_title, Section, unix_timestamp(Posted) as Posted', 
+				'textpattern', 
+				"ID={$article_id} AND Posted <= NOW()" . $exclude);
 
 			if ($article)
 			{
