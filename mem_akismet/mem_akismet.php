@@ -14,10 +14,10 @@ $plugin['name'] = 'mem_akismet';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.3';
+$plugin['version'] = '0.4';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
-$plugin['description'] = 'Akismet comment filtering for Textpattern';
+$plugin['description'] = 'Akismet/TypePad AntiSpam comment filtering for Textpattern';
 
 // Plugin types:
 // 0 = regular plugin; loaded on the public web side only
@@ -31,13 +31,14 @@ if (!defined('txpinterface'))
 if (0) {
 ?>
 # --- BEGIN PLUGIN HELP ---
-h1. Akismet Comment Filtering for Textpattern
+h1. Akismet/TypePad AntiSpam Comment Filtering for Textpattern
 
-This is a anti-spam plugin that uses "Akismet":http://www.akismet.com.
+This is a anti-spam plugin that uses "Akismet":http://www.akismet.com or "TypePad AntiSpam":http://antispam.typepad.com/.
 
 h2. Settings
 
-*mem_akismet_api_key* - The API key that you obtained from "Akismet.com":http://www.akismet.com
+*mem_akismet_spam_server* - The URI of the spam filter. For TypePad AntiSpam use "api.antispam.typepad.com" and for Akismet use "rest.akismet.com".
+*mem_akismet_api_key* - The API key that you obtained from "Akismet.com":http://www.akismet.com or "TypePad":http://antispam.typepad.com/info/get-api-key.html
 *mem_akismet_submit_ham_spam* - Determines whether Akismet is sent information whenever a comment has its status manually changed. This is disabled by default. Submitting content to Akismet allows them to improve their spam detection.
 
 h2. Uninstalling
@@ -62,7 +63,9 @@ global $prefs, $event;
 if (!isset($prefs['mem_akismet_submit_ham_spam'])) {
 	set_pref('mem_akismet_submit_ham_spam', '0', 'comments', 0, 'yesnoradio');
 }
-
+if (!isset($prefs['mem_akismet_spam_server'])) {
+	set_pref('mem_akismet_spam_server', 'rest.akismet.com', 'comments', 0);
+}
 
 if (!isset($prefs['mem_akismet_api_key'])) {
 	set_pref('mem_akismet_api_key','','comments');
@@ -133,8 +136,9 @@ function mem_akismet_discuss_save()
 	);
 
 	$apikey = @$prefs['mem_akismet_api_key'];
+	$akismetServer = @$prefs['mem_akismet_spam_server'];
 
-  $akismet = new Akismet($siteurl, $apikey, $comment);
+  $akismet = new Akismet($siteurl, $apikey, $comment, $akismetServer);
 
 	if (!$akismet->errorsExist())
 	{
@@ -372,10 +376,11 @@ if (!class_exists('AkismetObject')) {
 		 * @param 	String[]	$comment	A formatted comment array to be examined by the Akismet service
 		 * @return	Akismet
 		 */
-		function Akismet($blogUrl, $apiKey, $comment = array()) {
+		function Akismet($blogUrl, $apiKey, $comment = array(), $akismetServer = 'rest.akismet.com') {
 			$this->blogUrl = $blogUrl;
 			$this->apiKey  = $apiKey;
 			$this->setComment($comment);
+			$this->akismetServer = empty($akismetServer) ? $this->akismetServer : $akismetServer;
 			
 			// Connect to the Akismet server and populate errors if they exist
 			$this->http = new AkismetHttpClient($this->akismetServer, $blogUrl, $apiKey);
