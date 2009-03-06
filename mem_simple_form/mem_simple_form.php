@@ -32,7 +32,7 @@ if (0) {
 ?>
 # --- BEGIN PLUGIN HELP ---
 
-h1(title). mem_moderation_article plugin
+h1(title). mem_simple_form plugin
 
 h2(section summary). Summary
 
@@ -205,6 +205,9 @@ register_callback('mem_simple_form_submitted', 'mem_form.submit');
 function mem_simple_form_submitted()
 {
 	global $mem_form_type, $mem_form_values, $production_status;
+
+	if ($mem_form_type !== 'mem_simple_form')
+		return;
 
   $table = @$mem_form_values['mem_simple_table'];
 
