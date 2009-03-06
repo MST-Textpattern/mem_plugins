@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_self_register';
 
-$plugin['version'] = '0.9.1';
+$plugin['version'] = '0.9.3';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'User self registration. Read the help to install.';
@@ -20,39 +20,49 @@ if (0) {
 ?>
 # --- BEGIN PLUGIN HELP ---
 
-h2. User Self Registration
+h1(title). User Self Registration
 
-h3. Installation
-
-p. The plugin mem_form is required.
-
-p. "Start Install Wizard":./index.php?event=self-reg&step=preinstall&area=admin
-
-h3. Summary
+h2(section summary). Summary
 
 p. This plugin is designed to enable community driven sites. Users will be able to register themselves for an account to access the system. This plugin is compatible with the ign_user_password plugin alternate user table. This plugin provides user side tags for generating an html form where users can edit their account information.
 
-This plugin requires the plugin mem_form "(help)":index.php?event=plugin&step=plugin_help&name=mem_form.
+h2(section contact). Author Contact
 
-h3. Client Plug-in Tags:
+"Michael Manfre":mailto:mmanfre@gmail.com?subject=Textpattern%20mem_self_register%20plugin
+"http://manfre.net":http://manfre.net
 
-* *mem_self_register_form*
-* *mem_change_password_form*
-* *mem_self_user_edit_form*
-* *mem_profile*
-* *self_register_email_message*
-* *self_register_status_message*
-* *if_self_registered*
+h2(section license). License
 
-<hr />
+p. This plugin is licensed under the "GPLv2":http://www.fsf.org/licensing/licenses/info/GPLv2.html.
 
-h4. mem_self_register_form
+h2(section installation). Installation
 
-p. This will output an HTML form that will allow a user to register themselves with an account.
+p. This plugin requires the plugin mem_form "(help)":./index.php?event=plugin&step=plugin_help&name=mem_form.
 
-* *form* -- Specifies which form contains the HTML form template. Default is "self_register_form".
-* *email_form* -- Specifies which form contains the email message template that will be sent to a user upon registering. Default is "self_register_email".
+p. "Start Install Wizard":./index.php?event=self-reg&step=preinstall&area=admin
 
+
+h2(section tags). Tags
+
+* "mem_self_register_form":#mem_self_register_form
+* "mem_change_password_form":#mem_change_password_form
+* "mem_self_user_edit_form":#mem_self_user_edit_form
+* "mem_profile":#mem_profile
+* "self_register_email_message":#self_register_email_message
+* "self_register_status_message":#self_register_status_message
+* "if_self_registered":#if_self_registered
+* "mem_self_user_count":#mem_self_user_count
+
+h3(tag#mem_self_register_form). mem_self_register_form
+
+p(tag-summary). This will output an HTML form that will allow a user to register themselves with an account.
+
+*(atts) %(atts-name)form% %(atts-type)string% Specifies which form contains the HTML form template. Default is "self_register_form".
+* %(atts-name)email_form% %(atts-type)string% Specifies which form contains the email message template that will be sent to a user upon registering. Default is "self_register_email".
+* %(atts-name)from% %(atts-type)string% Registration email's From address. Defaults to mem_self_admin_email preference.
+* %(atts-name)reply% %(atts-type)string% Registration email's Reply To address.
+* %(atts-name)subject% %(atts-type)string% Subject for email. Default is "[SITENAME] Your Login Info"
+* %(atts-name)login_url% %(atts-type)string% URL to the login page. Default is Texpattern admin interface.
 
 p. Starter Template:
 
@@ -124,9 +134,9 @@ p. Example:
 <hr />
 
 
-h4. if_self_registered
+h3(tag#if_self_registered). if_self_registered
 
-p. This will output the contents of the tag if the user has already been registered. To work properly, this requires browser cookies after the initial form submission. This tag supports <code><txp:else /></code>
+p(tag-summary). This will output the contents of the tag if the user has already been registered. To work properly, this requires browser cookies after the initial form submission. This tag supports <code><txp:else /></code>
 
 p. Example:
 
@@ -138,23 +148,26 @@ You already have an account.
 </txp:if_self_registered>
 </code>==
 
-<hr />
 
-h4. mem_self_change_password_form
+h3(tag#mem_self_change_password_form). mem_self_change_password_form
 
-p. This tag allows a change password form to be displayed on the user portion of the website. This is meant to be used with the ign_password_protect plugin. This tag supports the tag txp:mem_profile (see below).
+p(tag-summary). This tag allows a change password form to be displayed on the user portion of the website. This is meant to be used with the ign_password_protect plugin. This tag supports the tag txp:mem_profile (see below).
 
-
-<hr />
-
-h4. mem_self_user_edit_form
-
-p. This tag allows a form to modify user information to be displayed on the user portion of the website. This is meant to be used with the ign_password_protect plugin. This tag supports the tag txp:mem_profile.
+*(atts) %(atts-name)form% %(atts-type)string% Specifies which form contains the HTML form template.
+* %(atts-name)email_form% %(atts-type)string% Specifies which form contains the email message template that will be sent to a user upon registering.
+* %(atts-name)from% %(atts-type)string% Registration email's From address. Defaults to mem_self_admin_email preference.
+* %(atts-name)reply% %(atts-type)string% Registration email's Reply To address.
+* %(atts-name)subject% %(atts-type)string% Subject for email. Default is "[SITENAME] Password Changed"
 
 
-h4. mem_profile
+h3(tag#mem_self_user_edit_form). mem_self_user_edit_form
 
-p. This tag will output the values of the user's profile.
+p(tag-summary). This tag allows a form to modify user information to be displayed on the user portion of the website. This is meant to be used with the ign_password_protect plugin. This tag supports the tag txp:mem_profile.
+
+
+h3(tag#mem_profile). mem_profile
+
+p(tag-summary). This tag will output the values of the user's profile.
 
 p. Tag Attributes:
 
@@ -172,6 +185,30 @@ p. Example for non logged in user
 
 p. Example for logged in user
 <code>Welcome back <txp:mem_profile var="RealName" /></code>
+
+h3(tag#mem_self_password_reset_form). mem_self_password_reset_form
+
+p(tag-summary). This tag will allow a user to request a new password to be sent to their email address.
+
+p. Starter Template
+<code>
+<txp:mem_self_password_reset_form form_mail="reset_password_form">
+	<txp:mem_form_text name="name" label="Username:" />
+	<br />
+	<txp:mem_form_text name="email" label="Email Address:" />
+	<br />
+	<txp:mem_form_submit name="submit" label="Submit" />
+</txp:mem_self_password_reset_form>
+</code>
+
+h3(tag#mem_self_user_count). mem_self_user_count
+
+p(tag-summary). Returns the number of users.
+
+*(atts) %(atts-name)user_levels% %(atts-type)string% Comma separated list of user levels that should be included in the count. Default is all "0,1,2,3,4,5,6"
+* %(atts-name)wraptag% %(atts-type)string% HTML tag to wrap around the result.
+* %(atts-name)class% %(atts-type)string% CSS class name for wraptag.
+
 
 # --- END PLUGIN HELP ---
 <?php
@@ -307,6 +344,7 @@ global $mem_self, $prefs;
 $mem_self = array(
 				'admin_email'		=>	'',
 				'admin_name'		=>	'',
+				'admin_bcc'			=>	'0',
 				'new_user_priv'		=>	'0',
 				'status'			=>	false,
 				'status_message'	=>	'You are already registered.',
@@ -316,6 +354,7 @@ $mem_self = array(
 $mem_self['admin_email'] = isset($prefs['mem_self_admin_email']) ? $prefs['mem_self_admin_email'] : '';
 $mem_self['admin_name'] = isset($prefs['mem_self_admin_name']) ? $prefs['mem_self_admin_name'] : '';
 $mem_self['new_user_priv'] = isset($prefs['mem_self_new_user_priv']) ? $prefs['mem_self_new_user_priv'] : '0';
+$mem_self['admin_bcc'] = isset($prefs['mem_self_admin_bcc']) ? $prefs['mem_self_admin_bcc'] : '0';
 
 if ( @txpinterface == 'admin' ) {
 	add_privs('self-reg','1');
@@ -347,6 +386,7 @@ if ( @txpinterface == 'admin' ) {
 			$mem_admin_name = !empty($mem_admin_name) ? $mem_admin_name : 'Admin';
 			$mem_admin_email = !empty($mem_admin_email) ? $mem_admin_email : 'Admin@yourdomain.com';
 			$mem_new_use_priv = !empty($mem_new_use_priv) ? $mem_new_use_priv : '0';
+			$mem_self_admin_bcc = !empty($mem_self_admin_bcc) ? $mem_self_admin_bcc : '0';
 
 			$use_ign_input = '';
 			// is ign_password_protect loaded on the system?
@@ -367,6 +407,7 @@ if ( @txpinterface == 'admin' ) {
 				startTable('edit') .
 					tr( fLabelCell('admin_name')	. tda(fInput('text','admin_name',$mem_admin_name,'edit')) ) .
 					tr( fLabelCell('admin_email')	. tda(fInput('text','admin_email',$mem_admin_email,'edit')) ) .
+					tr( fLabelCell('admin_bcc')	. tda(yesnoRadio('admin_bcc',$mem_self_admin_bcc)) ) .
 					tr( fLabelCell('new_user_priv')	. tda(priv_levels('new_user_priv',$mem_new_use_priv)) ) .
 					tr( fLabelCell('use_ign_db')	. tda($use_ign_input) ) .
 					($has_address ? '' : tr( fLabelCell('add_address_field') . tda($add_address_input) ) ) .
@@ -465,6 +506,15 @@ if ( @txpinterface == 'admin' ) {
 			safe_update('txp_prefs',"html='priv_levels'","name='mem_self_new_user_priv'");
 			
 			$log[] = mem_self_gTxt('log_pref_exists', array('{name}'=>'mem_self_new_user_priv','{value}' => $rs));
+		}
+		if (!($rs=safe_field('val','txp_prefs',"name='mem_self_admin_bcc'"))) {
+			if ( set_pref('mem_self_admin_bcc','0','self_reg',1,'yesnoradio')) {
+				$log[] = mem_self_gTxt('log_added_pref', array('{name}'=>'mem_self_admin_bcc'));
+			} else {
+				$log[] = mem_self_gTxt('log_pref_failed', array('{name}'=>'mem_self_admin_bcc','{error}'=>mysql_error()));
+			}
+		} else {
+			$log[] = mem_self_gTxt('log_pref_exists', array('{name}'=>'mem_self_admin_bcc','{value}'=>$rs));
 		}
 
 		// create default registration form
@@ -673,6 +723,12 @@ EOF;
 			$reply = $mem_form_values['reply'];
 			$subject = $mem_form_values['subject'];
 			
+			if ($mem_self['admin_bcc'])
+			{
+				$sep = !is_windows() ? "\n" : "\r\n";
+				$from .= $sep . 'Bcc: ' . $from;
+			}
+			
 			$sent = mem_form_mail($from,$reply,$to,$subject,$message);
 
 			$mem_self['email_status'] = $sent;
@@ -880,7 +936,7 @@ register_callback('mem_self_password_reset_form_submit','mem_form.submit');
 
 function mem_self_password_reset_form_submit()
 {
-	global $mem_form_type, $mem_form_values, $mem_profile, $prefs;
+	global $mem_form_type, $mem_form_values, $mem_profile, $prefs, $sitename;
 
 	if ($mem_form_type != 'mem_self_password_reset')
 		return;
@@ -917,7 +973,7 @@ function mem_self_password_reset_form_submit()
 	if (empty($where))
 		return mem_self_gTxt('missing_form_field',array('{name}'=>'name'));
 	
-	$rs = safe_row('name, email, nonce, RealName', mem_get_user_table_name(), join('and',$where));
+	$rs = safe_row('name, email, nonce, RealName', mem_get_user_table_name(), join(' and ',$where));
 	
 	if ($rs) 
 	{
@@ -929,7 +985,7 @@ function mem_self_password_reset_form_submit()
 
 		$confirm = bin2hex(pack('H*', substr(md5($nonce), 0, 10)).$name);		
 
-		$message = $mem_form_values['form_mail'];
+		$message = fetch_form($mem_form_values['form_mail']);
 		
 		if (empty($message)) {
 			$msg = mem_self_gTxt('greeting').' '.$name.','.
@@ -941,7 +997,8 @@ function mem_self_password_reset_form_submit()
 			$vals['sitename']	= $sitename;
 			$vals['admin_name']	= $prefs['mem_self_admin_name'];
 			$vals['admin_email']	= $vals['from'];
-			$vals['password']		= $pw;
+			//$vals['password']		= $pw;
+			$vals['confirm_url'] = $url;
 			$vals['siteurl']		= hu;
 			$vals['username']		= $vals['name'];
 			
@@ -971,6 +1028,9 @@ function mem_self_password_reset_form_submit()
 function mem_self_change_password_form($atts,$thing='')
 {
 	global $mem_self, $sitename, $production_status;
+
+	header('Cache-Control: no-cache');
+	header('Pragma: no-cache');
 
 	if (!is_callable('mail'))
 	{
@@ -1089,6 +1149,9 @@ register_callback('mem_self_register_defaults','mem_form.defaults');
 
 function mem_self_user_edit_form($atts,$thing='')
 {
+	header('Cache-Control: no-cache');
+	header('Pragma: no-cache');
+
 	return mem_form($atts + array('type'=>'mem_self_user_edit'),$thing);
 }
 
