@@ -14,7 +14,7 @@ $plugin['name'] = 'mem_templates';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.1';
+$plugin['version'] = '0.2';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This is a modified version of hcg_templates to support the importing and exporting of enabled plugins.';
@@ -32,7 +32,7 @@ if (0) {
 ?>
 # --- BEGIN PLUGIN HELP ---
 
-p. This is a modified version of hcg_templates to support the importing and exporting of enabled plugins.
+p. This is a modified version of hcg_templates to support the importing/exporting of enabled plugins and sections.
 
 # --- END PLUGIN HELP ---
 <?php
@@ -45,17 +45,19 @@ p. This is a modified version of hcg_templates to support the importing and expo
     -------------------------------------------------------------------------
 */
     $mem_templates = array(
-        "base_dir"             =>  "_templates",
+        "base_dir"				=>  "_templates",
+        
+        "subdir_section"	=>	"section",
+        "subdir_plugins"	=>	"plugins",
+        "subdir_pages"		=>  "pages",
+        "subdir_forms"		=>	"forms",
+        "subdir_css"			=>	"style",
 
-        "subdir_plugins"    =>    "plugins",
-        "subdir_pages"      =>  "pages",
-        "subdir_forms"        =>  "forms",
-        "subdir_css"        =>  "style",
-
-        "ext_plugins"        =>    ".plugin",
-        "ext_pages"            =>  ".page",
-        "ext_forms"            =>  ".form",
-        "ext_css"            =>  ".css"
+				"ext_section"			=>	".sec",
+        "ext_plugins"			=>	".plugin",
+        "ext_pages"       =>	".page",
+        "ext_forms"       =>	".form",
+        "ext_css"         =>	".css"
     );
 
 /*
@@ -238,6 +240,17 @@ p. This is a modified version of hcg_templates to support the importing and expo
                                 "subdir"    =>  $this->_config['subdir_css'],
                                 "table"     =>  "txp_css",
                                 "filter"    =>    "1=1"
+                            ),
+                "section" =>  array(
+                                "ext"       =>  $this->_config['ext_section'],
+                                "data"      =>  "title",
+                                "fields"    =>  "name, page, css, is_default, in_rss, on_frontpage, searchable, title",
+                                "nice_name" =>  "Sections",
+                                "regex"     =>  "/(.+)".$this->_config['ext_section']."/",
+                                "sql"       =>  "`name` = '%s', `page` = '%s', `is_default` = %d, `in_rss` = %d, `on_frontpage` = %d, `searchable` = %d, `title` = '%s'",
+                                "subdir"    =>  $this->_config['subdir_section'],
+                                "table"     =>  "txp_section",
+                                "filter"    =>	"1=1"
                             )
             );
         }
@@ -265,7 +278,8 @@ p. This is a modified version of hcg_templates to support the importing and expo
                             $dir.'/'.$this->_config['subdir_plugins'],
                             $dir.'/'.$this->_config['subdir_pages'],
                             $dir.'/'.$this->_config['subdir_css'],
-                            $dir.'/'.$this->_config['subdir_forms']
+                            $dir.'/'.$this->_config['subdir_forms'],
+                            $dir.'/'.$this->_config['subdir_section']
                         );
             foreach ($tocheck as $curDir) {
                 switch ($type) {
@@ -332,16 +346,15 @@ p. This is a modified version of hcg_templates to support the importing and expo
                                         );
 
 										$data = '';
-										
-                    if (isset($row['css'])) {
-                        $data = base64_decode($row['css']);
-                    }
-                    else if ($type=='plugins') {
+                    if ($type=='plugins' || $type=='section') {
                         $data = base64_encode(serialize($row));
+                    }
+                    else if (isset($row['css'])) {
+                        $data = base64_decode($row['css']);
                     } else {
                     	$data = $row[$config['data']];
                     }
-
+                    
                     $f = @fopen($filename, "w+");
                     if ($f) {
                         fwrite($f,$data);
@@ -370,6 +383,8 @@ p. This is a modified version of hcg_templates to support the importing and expo
         		return array();
         	}
             $dir = opendir($this->_config['full_base_path']);
+            
+            $list = array();
 	
             while(false !== ($filename = readdir($dir))) {
                 if (
@@ -407,6 +422,11 @@ p. This is a modified version of hcg_templates to support the importing and expo
                             $this->_config['full_base_path'],
                             $dir
                         );
+            
+            $first_section = false;
+            $css = array();
+            $page = array();
+
             foreach ($this->exportTypes as $type => $config) {
                 print "
                     <h1>Importing ".$config['nice_name']."</h1>
@@ -430,15 +450,28 @@ p. This is a modified version of hcg_templates to support the importing and expo
                                     $exportdir,
                                     $filename
                                 );
+                        
+                        $extra_message = '';
 
                         if ($data = file($f)) {
                             if ($type == 'css') {
                                 $data = base64_encode(implode('', $data));
-                            } else if ($type == 'plugins') {
+                            } else if ($type == 'plugins' || $type == 'section') {
                                 $data = doSlash(unserialize(base64_decode(implode('', $data))));
                             } else {
                                 $data = addslashes(implode('', $data));
                             }
+                            
+                            if ($type == 'section' && $first_section)
+                            {
+                            	safe_update($config['table'], "`is_default` = 0", '1=1');
+                            	$first_section = true;
+                            }
+                            
+                            if ($type == 'css')
+                            	$css[] = $templateName;
+                            if ($type == 'page')
+                            	$page[] = $templateName;
                             
                             if ($type == 'plugins') {
                                 $rs = safe_row('version, status', $config['table'], "name='".$templateName."'");
@@ -454,22 +487,39 @@ p. This is a modified version of hcg_templates to support the importing and expo
                                     $result = safe_insert($config['table'], $set.", `name` = '".$templateName."'");
                                     $success = ($result)?1:0;
                                 }
+                            }
+                            else if ($type == 'section') 
+                            {
+                            	$set = sprintf($config['sql'], $data['name'], $data['page'], $data['is_default'], $data['in_rss'], $data['on_frontpage'], $data['searchable'], $data['title']);
+                            	if (safe_field('name', $config['table'], "name='".$templateName."'")) {
+                              	$result = safe_update($config['table'], $set, "`name` = '".$templateName."'");
+                              } else {
+                              	$result = safe_insert($config['table'], $set);
+                              }
+															$success = ($result)?1:0;
+															
+															if (in_array($data['page'], $page))
+																$extra_message .= '. Missing page "' . $data['page'] . '"';
+															if (in_array($data['css'], $css))
+																$extra_message .= '. Missing style "' . $data['css']. '"';
                             } else {
-                                if (safe_field('name', $config['table'], "name='".$templateName."'")) {
-                                    $result = safe_update($config['table'], sprintf($config['sql'], $data, $templateType), "`name` = '".$templateName."'");
-                                    $success = ($result)?1:0;
-                                } else {
-                                    $result = safe_insert($config['table'], sprintf($config['sql'], $data, $templateType).", `name` = '".$templateName."'");
-                                    $success = ($result)?1:0;
-                                }
+                              if (safe_field('name', $config['table'], "name='".$templateName."'")) {
+                                $result = safe_update($config['table'], sprintf($config['sql'], $data, $templateType), "`name` = '".$templateName."'");
+                              } else {
+                              	$result = safe_insert($config['table'], sprintf($config['sql'], $data, $templateType).", `name` = '".$templateName."'");
+                              }
+															$success = ($result)?1:0;
                             }
                         }
+                        
+                        if (!empty($extra_message))
+                        	$extra_message = '. ' . $extra_message;
 
                         $success = true;
                         if ($success) {
-                            print "<li><span class='success'>Successfully imported</span> file '".$filename."'</li>";
+                            print "<li><span class='success'>Successfully imported</span> file '".$filename.$extra_message."'</li>";
                         } else {
-                            print "<li><span class='failure'>Failed importing</span> file '".$filename."'</li>";
+                            print "<li><span class='failure'>Failed importing</span> file '".$filename.$extra_message."'</li>";
                         }
                     }
                 }
