@@ -14,7 +14,7 @@ $plugin['name'] = 'mem_twitter';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.3.1';
+$plugin['version'] = '0.3.2';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin will post to twitter whenever an article is published.';
@@ -138,7 +138,8 @@ if (txpinterface == 'admin')
 					// get tinyurl for txp article
 					if ($url)
 						$url = mem_tinyurl( $url );
-					else
+					
+					if (empty($url))
 						$url = hu;
 
 					$msg = str_replace('{url}', $url, $msg);
