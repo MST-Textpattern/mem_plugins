@@ -14,7 +14,7 @@ $plugin['name'] = 'mem_twitter';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.3.2';
+$plugin['version'] = '0.3.3';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin will post to twitter whenever an article is published.';
@@ -97,11 +97,14 @@ if (txpinterface == 'admin')
 
 	function mem_twitter_ping()
 	{
-		global $mem_twitter_user, $mem_twitter_pass, $mem_twitter_msg, $mem_twitter_exclude_sections;
+		global $mem_twitter_user, $mem_twitter_pass, $mem_twitter_msg, $mem_twitter_exclude_sections, $production_status;
 
 		// do nothing without a provided user/pass		
 		if (empty($mem_twitter_user) || empty($mem_twitter_pass))
+		{
+			trigger_error('mem_twitter missing account credentials.', E_USER_WARNING);
 			return;
+		}
 		
 		$article_id = empty($GLOBALS['ID']) ? ps('ID') : $GLOBALS['ID'];
 		
@@ -145,7 +148,33 @@ if (txpinterface == 'admin')
 					$msg = str_replace('{url}', $url, $msg);
 				}
 
-				$t->updateStatus($msg);
+				$res = $t->updateStatus($msg);
+				
+				if (!$res)
+				{
+					$err = $t->lastCurlError();
+					
+					if (!empty($err))
+					{
+						trigger_error('mem_twitter failed while trying to contact twitter. curl error="' . $err .'"', E_USER_WARNING);
+					}
+					else
+					{
+						trigger_error('mem_twitter failed while trying to contact twitter.', E_USER_WARNING);
+					}
+				}
+				else if ($production_status != 'live')
+				{
+					trigger_error('mem_twitter updated status successfully.', E_USER_NOTICE);
+				}
+				
+			}
+		}
+		else
+		{
+			if ($production_status != 'live')
+			{
+				trigger_error('mem_twitter could not find article ID', E_USER_WARNING);
 			}
 		}
 	}
@@ -159,6 +188,11 @@ if (txpinterface == 'admin')
 		
 		if ($tinyurl != 'Error')
 			return $tinyurl;
+		
+		if ($production_status != 'live')
+		{
+			trigger_error('mem_twitter failed to get a TinyURL for "' . $url . '". Using ' + hu, E_USER_WARNING);
+		}
 		
 		return false;
 	}
@@ -455,6 +489,7 @@ if (txpinterface == 'admin')
 	    $twitter_data = curl_exec($curl_handle);
 	    $this->http_status = curl_getinfo($curl_handle, CURLINFO_HTTP_CODE);
 	    $this->last_api_call = $api_url;
+	    $this->last_curl_error = curl_error($curl_handle);
 	    curl_close($curl_handle);
 	    return $twitter_data;
 	  }
@@ -465,6 +500,10 @@ if (txpinterface == 'admin')
 	  
 	  function lastAPICall() {
 	    return $this->last_api_call;
+	  }
+
+	  function lastCurlError() {
+	  	return $this->last_curl_error;
 	  }
 	}
 }
