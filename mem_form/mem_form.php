@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 // $Rev$ $LastChangedDate$
-$plugin['version'] = '0.5.4';
+$plugin['version'] = '0.5.5';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -128,6 +128,7 @@ p(tag-summary). This will output an HTML hidden text input field.
 * %(atts-name)value% %(atts-type)string% The input value.
 * %(atts-name)required% %(atts-type)int% Specifies if input is required.
 * %(atts-name)class% %(atts-type)string% CSS class name.
+* %(atts-name)escape_value% %(atts-type)int% Set to "0" to prevent html escaping the value. Default "1".
 
 
 h3(tag#mem_form_radio). mem_form_radio
@@ -232,6 +233,7 @@ p(tag-summary). This will output an HTML text input field.
 * %(atts-name)max% %(atts-type)int% Max character length.
 * %(atts-name)min% %(atts-type)int% Min character length.
 * %(atts-name)size% %(atts-type)int% Size of input field.
+* %(atts-name)escape_value% %(atts-type)int% Set to "0" to prevent html escaping the value. Default "1".
 
 h3(tag#mem_form_textarea). mem_form_textarea
 
@@ -247,6 +249,7 @@ p(tag-summary). This will output an HTML textarea.
 * %(atts-name)required% %(atts-type)int% Specifies if input is required.
 * %(atts-name)rows% %(atts-type)int% Number of rows in the textarea.
 * %(atts-name)cols% %(atts-type)int% Number of columns in the textarea.
+* %(atts-name)escape_value% %(atts-type)int% Set to "0" to prevent html escaping the value. Default "1".
 
 h3(tag#mem_form_value). mem_form_value
 
@@ -317,6 +320,10 @@ p(event-summary). Allows a plugin to act upon a successful form submission.
 h3(event). mem_form.spam
 
 p(event-summary). Allows a plugin to test a submission as spam. The function get_mem_form_evaluator() returns the evaluator.
+
+h3(event). mem_form.store_value
+
+p(event-summary). On submit, this event is called for each field that passed the builtin checks and was just stored in to the global variables. The callback step is the field name. Warning: This event is called even if the overall form submit has failed.
 
 # --- END PLUGIN HELP ---
 <?php
@@ -622,7 +629,8 @@ function mem_form_text($atts)
 		'size'		=> '',
 		'password'	=> 0,
 		'format'	=> '',
-		'example'	=> ''
+		'example'	=> '',
+		'escape_value'	=> 1
 	), $atts));
 
 	$min = intval($min);
@@ -690,8 +698,13 @@ function mem_form_text($atts)
 	$memRequired = $required ? 'memRequired' : '';
 	$class = htmlspecialchars($class);
 	
+	if ($escape_value)
+	{
+		$value = htmlspecialchars($value);
+	}
+	
     return '<label for="'.$name.'" class="'.$class.' '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
-		'<input type="'.($password ? 'password' : 'text').'" id="'.$name.'" class="'.$class.' '.$memRequired.$isError.'" name="'.$name.'" value="'.htmlspecialchars($value).'"'.$size.$maxlength.' />';
+		'<input type="'.($password ? 'password' : 'text').'" id="'.$name.'" class="'.$class.' '.$memRequired.$isError.'" name="'.$name.'" value="'.$value.'"'.$size.$maxlength.' />';
 }
 
 
@@ -852,7 +865,8 @@ function mem_form_textarea($atts, $thing='')
 		'name'		=> '',
 		'class'		=> 'memTextarea',
 		'required'	=> 1,
-		'rows'		=> 8
+		'rows'		=> 8,
+		'escape_value'	=> 1
 	), $atts));
 
 	$min = intval($min);
@@ -913,9 +927,14 @@ function mem_form_textarea($atts, $thing='')
 
 	$memRequired = $required ? 'memRequired' : '';
 	$class = htmlspecialchars($class);
+	
+	if ($escape_value)
+	{
+		$value = htmlspecialchars($value);
+	}
 
 	return '<label for="'.$name.'" class="'.$class.' '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
-		'<textarea id="'.$name.'" class="'.$class.' '.$memRequired.$isError.'" name="'.$name.'" cols="'.$cols.'" rows="'.$rows.'">'.htmlspecialchars($value).'</textarea>';
+		'<textarea id="'.$name.'" class="'.$class.' '.$memRequired.$isError.'" name="'.$name.'" cols="'.$cols.'" rows="'.$rows.'">'.$value.'</textarea>';
 }
 
 function mem_form_email($atts)
@@ -1252,7 +1271,8 @@ function mem_form_hidden($atts, $thing='')
 		'value'		=> '',
 		'isError'	=> '',
 		'required'	=> 1,
-		'class'		=> 'memHidden'
+		'class'		=> 'memHidden',
+		'escape_value'	=> 1,
 	), $atts));
 	
 	$name = mem_form_label2name($name ? $name : $label);
@@ -1286,8 +1306,13 @@ function mem_form_hidden($atts, $thing='')
 	
 	$memRequired = $required ? 'memRequired' : '';
 	
+	if ($escape_value)
+	{
+		$value = htmlspecialchars($value);
+	}
+	
 	return '<input type="hidden" class="'.$class.' '.$memRequired.$isError.' '.$name 
-			. '" name="'.$name.'" value="'.htmlspecialchars($value).'" />';
+			. '" name="'.$name.'" value="'.$value.'" />';
 }
 
 function mem_form_radio($atts)
@@ -1406,9 +1431,12 @@ function mem_form_label2name($label)
 function mem_form_store($name, $label, $value)
 {
 	global $mem_form, $mem_form_labels, $mem_form_values;
+
 	$mem_form[$label] = $value;
 	$mem_form_labels[$name] = $label;
 	$mem_form_values[$name] = $value;
+
+	callback_event('mem_form.store_value', $name, 0);
 }
 
 function mem_form_display_error()
