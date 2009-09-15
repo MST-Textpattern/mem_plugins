@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 // $Rev$ $LastChangedDate$
-$plugin['version'] = '0.5.5';
+$plugin['version'] = '0.6';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -164,6 +164,8 @@ p(tag-summary). This will output an HTML select field.
 * %(atts-name)selected% %(atts-type)string% The value of the selected item.
 * %(atts-name)first% %(atts-type)string% Display value of the first item in the list. E.g. "Select a Section" or "" for a blank option.
 * %(atts-name)class% %(atts-type)string% CSS class name.
+* %(atts-name)select_limit% %(atts-type)int% Specifies the maximum number of items that may be selected. If set to a value greater than 1, a multiselect will be used. The stored value will be an array.
+* %(atts-name)as_csv% %(atts-type)int% If set to 1, the value will be stored as a delimited string of values instead of an array. This does nothing when select_limit is less than 2.
 
 
 h3(tag#mem_form_category). mem_form_select_category
@@ -356,6 +358,9 @@ if (!is_array($mem_form_lang))
 		'invalid_utf8'	=> 'Invalid UTF8 string for field {label}.',
 		'invalid_value'	=> 'The value "{value}" is invalid for the input field {label}.',
 		'invalid_format'	=>	'The input field {label} must match the format "{example}".',
+		'invalid_too_many_selected'	=> 'The input field {label} only allows {count} selected {plural}.',
+		'item'	=> 'item',
+		'items'	=> 'items',
 		'max_warning'	=> 'The input field {label} must be smaller than {max} characters long.',
 		'min_warning'	=> 'The input field {label} must be at least {min} characters long.',
 		'refresh'	=> 'Refresh',
@@ -1099,6 +1104,8 @@ function mem_form_select($atts)
 		'values'	=> '',
 		'first'		=> FALSE,
 		'required'	=> 1,
+		'select_limit'	=> FALSE,
+		'as_csv'	=> FALSE,
 		'selected'	=> '',
 		'class'		=> 'memSelect',
 	), $atts, false));
@@ -1112,26 +1119,73 @@ function mem_form_select($atts)
 		$items = $first.$delimiter.$atts['items'];
 		$values = $first.$delimiter.$atts['values'];
 	}
+	
+	$select_limit = empty($select_limit) ? 1 : assert_int($select_limit);
 
 	$items = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$items)));
 	$values = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$values)));
+	if ($select_limit > 1)
+	{
+		$selected = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$seelcted)));
+	}
+	else
+	{
+		$selected = array(trim($selected));
+	}
 
 	$use_values_array = (count($items) == count($values));
 
 	if ($mem_form_submit)
 	{
-		$value = trim(ps($name));
-
-		if (strlen($value))
+		if (strpos($name, '[]'))
 		{
-			if ($use_values_array && in_array($value, $values) or !$use_values_array && in_array($value, $items))
-			{
-				mem_form_store($name, $label, $value);
-			}
+			$value = ps(substr($name, 0, strlen($name)-2));
 
+			$selected = $value;
+
+			if ($as_csv)
+			{
+				$value = implode($delimiter, $value);
+			}
+		}
+		else
+		{
+			$value = trim(ps($name));
+			
+			$selected = array($value);
+		}
+
+		if (!empty($selected))
+		{
+			if (count($selected) <= $select_limit)
+			{
+				foreach ($selected as $v)
+				{
+					$is_valid = ($use_values_array && in_array($v, $values)) or (!$use_values_array && in_array($v, $items));
+					if (!$is_valid)
+					{
+						$invalid_value = $v;
+						break;
+					}
+				}
+
+				if ($is_valid)
+				{
+					mem_form_store($name, $label, $value);
+				}
+				else
+				{
+					$mem_form_error[] = mem_form_gTxt('invalid_value', array('{label}'=> htmlspecialchars($label), '{value}'=> htmlspecialchars($invalid_value)));
+					$isError = "errorElement";
+				}			
+			}
 			else
 			{
-				$mem_form_error[] = mem_form_gTxt('invalid_value', array('{label}'=> htmlspecialchars($label), '{value}'=> htmlspecialchars($value)));
+				$mem_form_error[] = mem_form_gTxt('invalid_too_many_selected', array(
+											'{label}'=> htmlspecialchars($label),
+											'{count}'=> $select_limit,
+											'{plural}'=> ($select_limit==1 ? mem_form_gTxt('item') : mem_form_gTxt('items'))
+										));
 				$isError = "errorElement";
 			}
 		}
@@ -1142,12 +1196,9 @@ function mem_form_select($atts)
 			$isError = "errorElement";
 		}
 	}
-	else
+	else if (isset($mem_form_default[$name]))
 	{
-		if (isset($mem_form_default[$name]))
-			$value = $mem_form_default[$name];
-		else
-			$value = $selected;
+		$selected = array($mem_form_default[$name]);
 	}
 
 	$out = '';
@@ -1155,16 +1206,20 @@ function mem_form_select($atts)
 	foreach ($items as $item)
 	{
 		$v = $use_values_array ? array_shift($values) : $item;
-		
-		$out .= n.t.'<option'.($use_values_array ? ' value="'.$v.'"' : '').($v == $value ? ' selected="selected">' : '>').
+
+		$sel = !empty($selected) && in_array($v, $selected);
+
+		$out .= n.t.'<option'.($use_values_array ? ' value="'.$v.'"' : '').($sel ? ' selected="selected">' : '>').
 				(strlen($item) ? htmlspecialchars($item) : ' ').'</option>';
 	}
 
 	$memRequired = $required ? 'memRequired' : '';
 	$class = htmlspecialchars($class);
 
+	$multiple = $select_limit > 1 ? ' multiple="multiple"' : '';
+
 	return '<label for="'.$name.'" class="'.$class.' '.$memRequired.$isError.' '.$name.'">'.htmlspecialchars($label).'</label>'.$break.
-		n.'<select id="'.$name.'" name="'.$name.'" class="'.$class.' '.$memRequired.$isError.'">'.
+		n.'<select id="'.$name.'" name="'.$name.'" class="'.$class.' '.$memRequired.$isError.'"' . $multiple . '>'.
 			$out.
 		n.'</select>';
 }
