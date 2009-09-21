@@ -8,7 +8,7 @@
 // Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation';
 
-$plugin['version'] = '0.7';
+$plugin['version'] = '0.7.1';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin adds a generic moderation queue to Textpattern. A plugin can extend the moderation queue to support any type of content.';
@@ -269,21 +269,95 @@ p(event-summary). A submitted item has been rejected and is being removed from t
 
 // the number of days that a newly submitted item will wait 
 // before appearing in the moderation queue. 0 will disable
-define('QUEUE_SUBMISSION_DELAY', "0");
+//define('QUEUE_SUBMISSION_DELAY', "0");
 
 // Specify whether users with Publisher privs will have their
 // submitted content appear immediatly in the list without 
 // waiting for the QUEUE_SUBMISSION_DELAY
-define('PUBLISHERS_BYPASS_QUEUE_DELAY', true);
-
-
-// By default, the ability to approve from the moderation queue
-// is disabled. Set to true to enable this behavior
-define('ALLOW_APPROVE_FROM_LIST', false);
-
+//define('PUBLISHERS_BYPASS_QUEUE_DELAY', true);
 
 ///////////////////////////////////////////////////////////
 // Do not modify below this line
+
+
+// MLP support
+define( 'MEM_MODERATION_PREFIX' , 'mem_moderation' );
+global $mem_moderation_lang;
+$mem_moderation_lang = array(
+	'id_not_found'	=> "Moderation ID {id} not found.",
+	'install_log'	=> "Install Log",
+	'invalid_arg'	=> "The argument {arg} is invalid.",
+	'missing_arg'	=> "The attribute {arg} is required and was not provided.",
+	'remove_failed'	=> "Failed to remove ID {id} from queue.",
+	'new_submission_email'	=> "The user {user} has submitted a request of type {type} to the moderation queue.",
+	'new_submission_email_subject'	=> "Moderation Queue",
+	'table_access_failed'	=>	"Error accessing the database table. {err}",
+
+	'mem_moderati'	=>	'Moderation Plugin',
+	
+	// prefs
+	'mem_mod_email_on_new'	=>	'Email on new content?',
+	'mem_mod_notify_email'	=>	'Notification Email Address',
+	'mem_mod_queue_delay'	=>	'Queue Delay (days)',
+	'mem_mod_multiedit_approve'	=>	'Enable Multi-edit approval?',
+);
+
+register_callback('fix_lang', 'prefs', '', 1);
+function fix_lang()
+{
+	global $mem_moderation_lang, $textarray, $locale;
+	if (strncasecmp('en', $locale, 2) != 0)
+		return;
+	
+	foreach ($mem_moderation_lang as $k => $v)
+	{
+		$textarray[$k] = $v;
+	}
+}
+
+register_callback( 'mem_moderation_enumerate_strings' , 'l10n.enumerate_strings' );
+function mem_moderation_enumerate_strings($event , $step='' , $pre=0)
+{
+	global $mem_moderation_lang;
+	dmp($mem_moderation_lang);
+	$r = array	(
+				'owner'		=> 'mem_moderation',			#	Change to your plugin's name
+				'prefix'	=> MEM_MODERATION_PREFIX,				#	Its unique string prefix
+				'lang'		=> 'en-gb',						#	The language of the initial strings.
+				'event'		=> 'public',					#	public/admin/common = which interface the strings will be loaded into
+				'strings'	=> $mem_moderation_lang,		#	The strings themselves.
+				);
+	return $r;
+}
+function mem_moderation_gTxt($what,$args = array())
+{
+	global $mem_moderation_lang, $textarray;
+
+	$key = strtolower( MEM_MODERATION_PREFIX . '-' . $what );
+	
+	if (isset($textarray[$key]))
+	{
+		$str = $textarray[$key];
+	}
+	else
+	{
+		$key = strtolower($what);
+		
+		if (isset($mem_moderation_lang[$key]))
+			$str = $mem_moderation_lang[$key];
+		elseif (isset($textarray[$key]))
+			$str = $textarray[$key];
+		else
+			$str = $what;
+	}
+
+	if( !empty($args) )
+		$str = strtr( $str , $args );
+
+	return $str;
+}
+
+
 
 global $mod_event, $mem_moderation_lang, $prefs;
 $mod_event = 'moderate';
@@ -361,6 +435,7 @@ function moderate_submission_list($atts,$thing='')
 }
 
 function mod_note_input($atts) {
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_form_textarea')), E_USER_NOTICE);
 	global $mem_mod_info;
 	extract(lAtts(array(
 		'style'	=>	'',
@@ -383,7 +458,7 @@ function mem_moderation_edit_link($atts, $thing)
 }
 function mod_edit_link($atts,$thing)
 {
-	//trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_moderation_edit_link')), E_USER_NOTICE);
 	return mem_moderation_edit_link($atts, $thing);
 }
 
@@ -492,14 +567,14 @@ function mem_if_moderation($atts, $thing)
 }
 
 function mod_if_type($atts,$thing) {
-	//trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_if_moderation')), E_USER_NOTICE);
 	return mem_if_moderation(array(
 						'check'	=> 'type',
 						'name' => @$atts['name']
 					), $thing);
 }
 function mod_if_data($atts,$thing) {
-	//trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_if_moderation')), E_USER_NOTICE);
 	return mem_if_moderation(array(
 						'check'	=> 'data',
 						'name'	=> @$atts['name'],
@@ -507,7 +582,7 @@ function mod_if_data($atts,$thing) {
 					), $thing);
 }
 function mem_moderation_if_gps($atts,$thing) {
-	//trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_if_moderation')), E_USER_NOTICE);
 	return mem_if_moderation(array(
 						'check'	=> 'gps',
 						'name'	=> @$atts['name'],
@@ -515,36 +590,36 @@ function mem_moderation_if_gps($atts,$thing) {
 					), $thing);
 }
 function mod_id($atts) {
-	//trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_moderation_info')), E_USER_NOTICE);
 	return mem_moderation_info(array('field'=>'id'));
 }
 function mod_item_id($atts) {
-	//trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_moderation_info')), E_USER_NOTICE);
 	return mem_moderation_info(array('field'=>'item_id'));
 }
 function mod_submitted($atts) {
-	//trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_moderation_info')), E_USER_NOTICE);
 	$atts['field'] = 'submitted';
 	return mem_moderation_info($atts);
 }
 function mod_user($atts) {
-	//trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_moderation_info')), E_USER_NOTICE);
 	return mem_moderation_info(array('field'=>'user'));
 }
 function mod_desc($atts) {
-	//trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_moderation_info')), E_USER_NOTICE);
 	return mem_moderation_info(array('field'=>'desc'));
 }
 function mod_type($atts) {
-	//trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_moderation_info')), E_USER_NOTICE);
 	return mem_moderation_info(array('field'=>'type'));
 }
 function mod_email($atts) {
-	//trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_moderation_info')), E_USER_NOTICE);
 	return mem_moderation_info(array('field'=>'email'));
 }
 function mod_data($atts) {
-	//trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function', array('{name}' => __FUNCTION__)), E_USER_NOTICE);
 	$atts['field'] = 'data';
 	$atts['datafield'] = @$atts['name'];
 	return mem_moderation_info($atts);
@@ -566,7 +641,7 @@ function mem_moderate_list($message="")
 
 	$page = gps('page');
 	$total = getCount('txp_moderation',"1");
-	$limit = $link_list_pageby;
+	$limit = empty($link_list_pageby) ? 20 : $link_list_pageby;
 	$numPages = $total==0 ? 1 : ceil($total/$limit);
 	$page = (!$page) ? 1 : $page;
 	$offset = ($page - 1) * $limit;
@@ -583,7 +658,9 @@ function mem_moderate_list($message="")
 	$nav[] = ($page != $numPages && $numPages > 1)
 			?	PrevNextLink($mod_event,$page+1,gTxt('next'),'next') : '';
 
-	if(PUBLISHERS_BYPASS_QUEUE_DELAY) 
+	$delay = isset($mem_mod_queue_delay) ? assert_int($mem_mod_queue_delay) : 0;
+
+	if($mem_mod_pub_bypass_queue) 
 	{
 		// check against user table
 		$user_table = mem_get_user_table_name();
@@ -592,7 +669,7 @@ function mem_moderate_list($message="")
 		$rs = safe_rows_start(
 			"txp_moderation.*",
 			"txp_moderation, {$user_table}",
-			" txp_moderation.user={$user_table}.name AND (DATE_SUB( NOW(), INTERVAL ". QUEUE_SUBMISSION_DELAY ." DAY ) > txp_moderation.submitted OR {$user_table}.privs = 1) order by txp_moderation.{$sort} $dir limit $offset,$limit"
+			" txp_moderation.user={$user_table}.name AND (DATE_SUB( NOW(), INTERVAL ". $delay ." DAY ) > txp_moderation.submitted OR {$user_table}.privs = 1) order by txp_moderation.{$sort} $dir limit $offset,$limit"
 		);
 	}
 	else
@@ -601,7 +678,7 @@ function mem_moderate_list($message="")
 		$rs = safe_rows_start(
 			"*",
 			"txp_moderation",
-			" (DATE_SUB( NOW(), INTERVAL ". QUEUE_SUBMISSION_DELAY ." DAY ) > submitted) order by {$sort} $dir limit $offset,$limit"
+			" (DATE_SUB( NOW(), INTERVAL ". $delay ." DAY ) > submitted) order by {$sort} $dir limit $offset,$limit"
 		);
 	}
 	
@@ -668,7 +745,7 @@ function mem_moderate_list($message="")
 
 		$multi_edit_options = array('reject'=>gTxt('reject'));
 		
-		if (ALLOW_APPROVE_FROM_LIST)
+		if ($mem_mod_multiedit_approve)
 		{
 			$multi_edit_options['approve'] = gTxt('approve');
 		}
@@ -980,63 +1057,6 @@ if (!function_exists('mem_get_user_table_name')) {
 	}
 }
 
-
-// MLP support
-define( 'MEM_MODERATION_PREFIX' , 'mem_moderation' );
-if (!is_array($mem_moderation_lang))
-{
-	$mem_moderation_lang = array(
-		'id_not_found'	=> "Moderation ID {id} not found.",
-		'install_log'	=> "Install Log",
-		'invalid_arg'	=> "The argument {arg} is invalid.",
-		'missing_arg'	=> "The attribute {arg} is required and was not provided.",
-		'remove_failed'	=> "Failed to remove ID {id} from queue.",
-		'new_submission_email'	=> "The user {user} has submitted a request of type {type} to the moderation queue.",
-		'new_submission_email_subject'	=> "Moderation Queue",
-		'table_access_failed'	=> "Error accessing the database table. {err}",
-	);
-}
-register_callback( 'mem_moderation_enumerate_strings' , 'l10n.enumerate_strings' );
-function mem_moderation_enumerate_strings($event , $step='' , $pre=0)
-{
-	global $mem_self_lang;
-	$r = array	(
-				'owner'		=> 'mem_moderation',			#	Change to your plugin's name
-				'prefix'	=> MEM_MODERATION_PREFIX,				#	Its unique string prefix
-				'lang'		=> 'en-gb',						#	The language of the initial strings.
-				'event'		=> 'public',					#	public/admin/common = which interface the strings will be loaded into
-				'strings'	=> $mem_moderation_lang,		#	The strings themselves.
-				);
-	return $r;
-}
-function mem_moderation_gTxt($what,$args = array())
-{
-	global $mem_moderation_lang, $textarray;
-
-	$key = strtolower( MEM_MODERATION_PREFIX . '-' . $what );
-	
-	if (isset($textarray[$key]))
-	{
-		$str = $textarray[$key];
-	}
-	else
-	{
-		$key = strtolower($what);
-		
-		if (isset($mem_moderation_lang[$key]))
-			$str = $mem_moderation_lang[$key];
-		elseif (isset($textarray[$key]))
-			$str = $textarray[$key];
-		else
-			$str = $what;
-	}
-
-	if( !empty($args) )
-		$str = strtr( $str , $args );
-
-	return $str;
-}
-
 // ----------------------------------------------------------------
 if (@txpinterface == 'admin') 
 {	
@@ -1200,7 +1220,21 @@ if (@txpinterface == 'admin')
 			set_pref('mem_mod_email_on_new', '', 'mem_moderation', 1, 'yesnoradio');
 			$log[] = "Set preference mem_mod_email_on_new";
 		}
-		
+		if (!isset($prefs['mem_mod_queue_delay']))
+		{
+			set_pref('mem_mod_queue_delay', '0', 'mem_moderation', 1);
+			$log[] = "Set preference mem_mod_queue_delay";
+		}
+		if (!isset($prefs['mem_mod_multiedit_approve']))
+		{
+			set_pref('mem_mod_multiedit_approve', '0', 'mem_moderation', 1, 'yesnoradio');
+			$log[] = "Set preference mem_mod_multiedit_approve";
+		}
+		if (!isset($prefs['mem_mod_pub_bypass_queue']))
+		{
+			set_pref('mem_mod_pub_bypass_queue', '0', 'mem_moderation', 1, 'yesnoradio');
+			$log[] = "Set preference mem_mod_pub_bypass_queue";
+		}
 		// check for table
 		$rs = safe_row("id", "txp_moderation", "1=1 LIMIT 1");
 
@@ -1255,9 +1289,10 @@ if (@txpinterface == 'admin')
 			if (!$form)
 			{
 				$form_html = <<<EOF
-<txp:mod_edit_link><txp:mod_type /> #<txp:mod_id /></txp:mod_edit_link> - <txp:mod_submitted />
+<txp:mem_moderation_edit_link><txp:mem_moderation_info field="type" /> 
+#<txp:mem_moderation_info field="id" /></txp:mem_moderation_edit_link> - <txp:mem_moderation_info field="submitted" />
 <div>
-	<txp:mod_desc />
+	<txp:mem_moderation_info field="desc" />
 </div>
 EOF;
 				$form_html = doSlash($form_html);
