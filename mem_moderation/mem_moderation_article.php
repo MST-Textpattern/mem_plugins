@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation_article';
 
-$plugin['version'] = '0.7';
+$plugin['version'] = '0.7.1';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Moderation plugin that allows articles to be submitted to the moderation queue.';
@@ -191,15 +191,6 @@ p(tag-summary). Display a textarea field for the note (to the moderators)
 // Author: Michael Manfre (http://manfre.net/)
 ////////////////////////////////////////////////////////////
 
-// If true, the article submits with the moderator as the Author.
-// If false, the submitting user id is passed along as the author.
-define('ARTICLE_SUBMITS_WITH_MODERATOR_USER_ID', false);
-
-// Should edits reset the article time?
-define('ARTICLE_EDIT_RESETS_TIME', false);
-
-// If glz_custom_fields integration, should the glz CSS be used?
-define('MEM_USE_GLZ_CUSTOM_CSS', false);
 
 ////////////////////////////////////////////////////////////
 // Do not modify below this line
@@ -207,7 +198,13 @@ define('MEM_USE_GLZ_CUSTOM_CSS', false);
 require_plugin('mem_moderation');
 
 
-global $event, $step, $mem_article_vars, $mem_article_delete_vars, $mem_glz_custom_fields_plugin;
+global $event, $step, $prefs, $mem_article_vars, $mem_article_delete_vars, $mem_glz_custom_fields_plugin, $mem_moderation_lang;
+
+$mem_moderation_lang = array_merge($mem_moderation_lang, array(
+	'mem_mod_pub_bypass_queue'	=>	'Publishers bypass queue delay?',
+	'mem_mod_article_edit_resets_time'	=>	'Edit resets article time?',
+	'mem_mod_article_submit_with_moderator_id'	=>	'Substitute approver as article editor?',
+));
 
 // article/article-edit vars
 $mem_article_vars = array('note','user','email','modid','id','articleid',
@@ -229,13 +226,13 @@ if ($mem_glz_custom_fields_plugin && ($event == "moderate" or txpinterface == 'p
 	
 	foreach ( $g_fields as $custom_field )
 	{
-		$mem_article_vars[] = glz_custom_number($custom_field['custom_set']);
+		$mem_article_vars[] = @glz_custom_number($custom_field['custom_set']);
 	}
 	
 	$mem_article_vars = array_unique($mem_article_vars);	
 
 	// should css/js get inlined?
-	if (MEM_USE_GLZ_CUSTOM_CSS)
+	if (@$prefs['mem_mod_article_use_glz_custom_css'])
 	{
 		ob_start("glz_custom_fields_css_js");
 	}
@@ -319,6 +316,8 @@ if (@txpinterface == 'admin')
 		/** Install Default Forms, prefs, etc. */
 		function article_install() 
 		{
+			global $prefs;
+
 			$log = array();
 
 			// default article edit form
@@ -326,21 +325,18 @@ if (@txpinterface == 'admin')
 			if (!$form) 
 			{
 				$form_html = <<<EOF
-<div class="submit_label">Title</div>
-<txp:mod_title_input />
+<txp:mem_form_text name="title" label="Title" />
 
-<div class="submit_label">Category</div>
-<txp:mod_category1_select />
+<txp:mem_form_select_category name="category1" label="Category" />
 
-<div class="submit_label">Body</div>
-<txp:mod_body_input />
+<txp:mem_form_textarea name="body" label="Body" />
 
-<div class="submit_label">Notes for the Moderator (optional)</div>
-<txp:mod_note_input />
+<txp:mem_form_textarea name="note" label="Notes for the Moderator (optional)" required="0" />
+
 <!-- this will put the submitting username in to custom field 1 -->
-<input type="hidden" name="custom_1" value='<txp:mem_profile var="name" />' />
+<txp:mem_form_hidden name="custom_1" value='<txp:mem_profile var="name" />' />
 
-<div><txp:mod_submit /></div>
+<div><txp:mem_form_submit /></div>
 EOF;
 				$form_html = doSlash($form_html);
 				if (safe_insert('txp_form',"name='mod_article_form',type='misc',Form='{$form_html}'"))
@@ -377,6 +373,23 @@ EOF;
 				$log[] = "Found form 'mod_article_success'. Skipping installation of default form.";
 			}
 
+			if (!isset($prefs['mem_mod_article_edit_resets_time']))
+			{
+				set_pref('mem_mod_article_edit_resets_time', '0', 'mem_moderation', 1, 'yesnoradio');
+				$log[] = "Set preference mem_mod_article_edit_resets_time";
+			}
+			if (!isset($prefs['mem_mod_article_use_glz_custom_css']))
+			{
+				set_pref('mem_mod_article_use_glz_custom_css', '0', 'mem_moderation', 1, 'yesnoradio');
+				$log[] = "Set preference mem_mod_article_use_glz_custom_css";
+			}
+			if (!isset($prefs['mem_mod_article_submit_with_moderator_id']))
+			{
+				set_pref('mem_mod_article_submit_with_moderator_id', '0', 'mem_moderation', 1, 'yesnoradio');
+				$log[] = "Set preference mem_mod_article_submit_with_moderator_id";
+			}
+
+
 			return tag("Install Log",'h2').doWrap($log,'ul','li');
 		}
 	} // if article_moderate
@@ -385,7 +398,7 @@ EOF;
 /** The article form tag. Handles all logic. Deprecated */
 function mod_article_form($atts,$thing='')
 {
-	trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_moderation_article_form')), E_USER_NOTICE);
 
 	global $step,$txp_user,$ign_user,$mem_mod_info,$mem_modarticle_info, $mem_article_vars;
 	
@@ -507,7 +520,7 @@ function mod_article_form($atts,$thing='')
 
 function mod_custom_input($atts) 
 {
-	trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_form_text')), E_USER_NOTICE);
 	global $mem_modarticle_info;
 	extract(lAtts(array(
 		'id'	=>	'1',
@@ -519,7 +532,7 @@ function mod_custom_input($atts)
 }
 function mod_title_input($atts) 
 {
-	trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_form_text')), E_USER_NOTICE);
 	global $mem_mod_info,$mem_modarticle_info;
 	extract(lAtts(array(
 		'isize'	=>	25,
@@ -530,7 +543,7 @@ function mod_title_input($atts)
 }
 function mod_image_input($atts) 
 {
-	trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_form_text')), E_USER_NOTICE);
 	global $mem_mod_info,$mem_modarticle_info;
 	extract(lAtts(array(
 		'isize'	=>	25,
@@ -541,7 +554,7 @@ function mod_image_input($atts)
 }
 function mod_keywords_input($atts) 
 {
-	trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_form_text')), E_USER_NOTICE);
 	global $mem_mod_info,$mem_modarticle_info;
 	extract(lAtts(array(
 		'isize'	=>	25,
@@ -556,7 +569,7 @@ function mod_keywords_input($atts)
 }
 function mod_body_input($atts) 
 {
-	trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_form_textarea')), E_USER_NOTICE);
 	global $mem_mod_info,$mem_modarticle_info;
 	extract(lAtts(array(
 		'style'	=>	'',
@@ -568,7 +581,7 @@ function mod_body_input($atts)
 }
 function mod_body_html_input($atts) 
 {
-	trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_form_textarea')), E_USER_NOTICE);
 	global $mem_mod_info,$mem_modarticle_info;
 	extract(lAtts(array(
 		'style'	=>	'',
@@ -580,7 +593,7 @@ function mod_body_html_input($atts)
 }
 function mod_excerpt_input($atts) 
 {
-	trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_form_textarea')), E_USER_NOTICE);
 	global $mem_mod_info,$mem_modarticle_info;
 	extract(lAtts(array(
 		'style'	=>	'',
@@ -592,7 +605,7 @@ function mod_excerpt_input($atts)
 }
 function mod_excerpt_html_input($atts) 
 {
-	trigger_error(gTxt('deprecated_tag'), E_USER_NOTICE);
+	trigger_error(gTxt('deprecated_function_with', array('{name}' => __FUNCTION__, '{with}' => 'mem_form_textarea')), E_USER_NOTICE);
 	global $mem_mod_info,$mem_modarticle_info;
 	extract(lAtts(array(
 		'style'	=>	'',
@@ -737,7 +750,7 @@ function mem_article_presenter($type,$data)
  */
 function mem_article_approver($type,$data)
 {
-	global $txpcfg, $txp_user, $mem_glz_custom_fields_plugin;
+	global $txpcfg, $txp_user, $mem_glz_custom_fields_plugin, $prefs;
 
 	if (!is_array($data))
 	{
@@ -770,7 +783,7 @@ function mem_article_approver($type,$data)
 
 		extract(doSlash($incoming));
 		
-		if ( ARTICLE_SUBMITS_WITH_MODERATOR_USER_ID || !isset($user) ) {
+		if ( @$mem_mod_article_submit_with_moderator_id || !isset($user) ) {
 			$user = $txp_user;
 		}
 
@@ -911,7 +924,7 @@ function mem_article_approver($type,$data)
 		$ID = assert_int($articleid);
 
 		// override submitter with moderator?
-		if ( ARTICLE_SUBMITS_WITH_MODERATOR_USER_ID || !isset($user) )
+		if (@$mem_mod_article_submit_with_moderator_id || !isset($user) )
 		{
 			$user = $txp_user;
 		}
@@ -920,7 +933,7 @@ function mem_article_approver($type,$data)
 
 		if (!has_privs('article.publish') && $Status>=4) $Status = 3;
 
-		if(ARTICLE_EDIT_RESETS_TIME)
+		if (@$mem_mod_article_edit_resets_time)
 		{
 			$whenposted = ",Posted=now()"; 
 		}
@@ -1610,19 +1623,19 @@ if ($mem_glz_custom_fields_plugin)
 			foreach ( $arr_custom_fields as $custom_field )
 			{
 				// get all possible/default value(s) for this custom field from custom_fields table
-				$arr_custom_field_values = glz_custom_fields_MySQL("values", $custom_field['custom_set'], '', array('custom_set_name' => $custom_field['custom_set_name']));
+				$arr_custom_field_values = @glz_custom_fields_MySQL("values", $custom_field['custom_set'], '', array('custom_set_name' => $custom_field['custom_set_name']));
 	
 				//DEBUG
 				//dmp($arr_custom_field_values);
 	
 				//custom_set without "_set" e.g. custom_1_set => custom_1
-				$custom_set = glz_custom_number($custom_field['custom_set']);
+				$custom_set = @glz_custom_number($custom_field['custom_set']);
 
 				// if current article holds no value for this custom field, make it empty
 				$custom_value = ( !empty($$custom_set) ) ? $$custom_set : '';
 	
 				// the way our custom field value is going to look like
-				switch ( $custom_field['custom_set_type'] )
+				switch ( @$custom_field['custom_set_type'] )
 				{
 					case "text_input":
 						$custom_set_value = fInput("text", $custom_set, $custom_value, "edit", "", "", "22", "", $custom_set);
@@ -1697,7 +1710,7 @@ EOJS;
 			// see what custom fields we need to query for
 			foreach ( $extra as $custom_set )
 			{
-				$select = glz_custom_number($custom_set['custom_set']);
+				$select = @glz_custom_number($custom_set['custom_set']);
 				
 				$arr_article_customs[$select] = $mem_modarticle_info[$select];
 			}
