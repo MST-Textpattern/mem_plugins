@@ -8,7 +8,7 @@
 // Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation';
 
-$plugin['version'] = '0.7.1';
+$plugin['version'] = '0.7.2';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin adds a generic moderation queue to Textpattern. A plugin can extend the moderation queue to support any type of content.';
@@ -293,6 +293,20 @@ $mem_moderation_lang = array(
 	'new_submission_email_subject'	=> "Moderation Queue",
 	'table_access_failed'	=>	"Error accessing the database table. {err}",
 
+	// installation
+	'add_item_field'	=> 'Added item_id field to moderation table.',
+	'add_item_field_failed'	=> 'Failed to add field "item_id" to moderation table.',
+	'table_created'	=> "Created table {name}",
+	'table_create_failed'	=> "Failed to create moderation table. {mysql_error}",
+	'table_exists'	=> 'Moderation table already exists',
+	'form_found'	=> "Found form '{form}'. Skipping installation of default form.",
+	'form_created'	=> "Created default form '{form}'",
+	'form_create_fail'	=> "Failed to create form '{form}'. {mysql_error}",
+	'skipping_form_install'	=> "Skipping installation of default forms",
+	'set_pref'	=> 'Set preference {name}',
+	'set_pref_failed'	=> 'Failed to set preference {name}',
+	'set_pref_exists'	=> 'Preference {name} already exists.',
+
 	'mem_moderati'	=>	'Moderation Plugin',
 	
 	// prefs
@@ -319,7 +333,6 @@ register_callback( 'mem_moderation_enumerate_strings' , 'l10n.enumerate_strings'
 function mem_moderation_enumerate_strings($event , $step='' , $pre=0)
 {
 	global $mem_moderation_lang;
-	dmp($mem_moderation_lang);
 	$r = array	(
 				'owner'		=> 'mem_moderation',			#	Change to your plugin's name
 				'prefix'	=> MEM_MODERATION_PREFIX,				#	Its unique string prefix
@@ -919,7 +932,7 @@ function submit_moderated_content($type,$email,$desc,$data,$item_id='0')
 		$reply = $from = $to = $mem_mod_notify_email;
 		$subject = "[$sitename] " . mem_moderation_gTxt('new_submission_email_subject');
 		
-		$sent = mem_form_mail($from, $reply, $to, $subject, $message);
+		$sent = @mem_form_mail($from, $reply, $to, $subject, $message);
 	}
 
 	return $r;
@@ -1213,27 +1226,27 @@ if (@txpinterface == 'admin')
 		if (!isset($prefs['mem_mod_notify_email']))
 		{
 			set_pref('mem_mod_notify_email', '', 'mem_moderation', 1);
-			$log[] = "Set preference mem_mod_notify_email";
+			$log[] = mem_moderation_gTxt('set_pref', array('{name}' => 'mem_mod_notify_email'));
 		}
 		if (!isset($prefs['mem_mod_email_on_new'])) 
 		{
 			set_pref('mem_mod_email_on_new', '', 'mem_moderation', 1, 'yesnoradio');
-			$log[] = "Set preference mem_mod_email_on_new";
+			$log[] = mem_moderation_gTxt('set_pref', array('{name}' => 'mem_mod_email_on_new'));
 		}
 		if (!isset($prefs['mem_mod_queue_delay']))
 		{
 			set_pref('mem_mod_queue_delay', '0', 'mem_moderation', 1);
-			$log[] = "Set preference mem_mod_queue_delay";
+			$log[] = mem_moderation_gTxt('set_pref', array('{name}' => 'mem_mod_queue_delay'));
 		}
 		if (!isset($prefs['mem_mod_multiedit_approve']))
 		{
 			set_pref('mem_mod_multiedit_approve', '0', 'mem_moderation', 1, 'yesnoradio');
-			$log[] = "Set preference mem_mod_multiedit_approve";
+			$log[] = mem_moderation_gTxt('set_pref', array('{name}' => 'mem_mod_multiedit_approve'));
 		}
 		if (!isset($prefs['mem_mod_pub_bypass_queue']))
 		{
 			set_pref('mem_mod_pub_bypass_queue', '0', 'mem_moderation', 1, 'yesnoradio');
-			$log[] = "Set preference mem_mod_pub_bypass_queue";
+			$log[] = mem_moderation_gTxt('set_pref', array('{name}' => 'mem_mod_pub_bypass_queue'));
 		}
 		// check for table
 		$rs = safe_row("id", "txp_moderation", "1=1 LIMIT 1");
@@ -1257,16 +1270,16 @@ if (@txpinterface == 'admin')
 			
 			if (($rs=safe_query($sql))) 
 			{
-				$log[] = "Created moderation table ". PFX."txp_moderation";
+				$log[] = mem_moderation_gTxt('table_created', array('{name}' => PFX."txp_moderation"));
 			}
 			else
 			{
-				$log[] = "Failed to create moderation table. " . mysql_error();
+				$log[] = mem_moderation_gTxt('table_create_failed', array('{mysql_error}' => mysql_error()));
 			}
 		}
 		else
 		{
-			$log[] = "Moderation table already exists";
+			$log[] = mem_moderation_gTxt('table_exists');
 
 			$rs = safe_row("item_id", "txp_moderation", "1=1 LIMIT 1");
 	
@@ -1274,11 +1287,11 @@ if (@txpinterface == 'admin')
 			{
 		     	if (safe_alter('txp_moderation', "ADD `item_id` INT NOT NULL DEFAULT '0' AFTER `type`"))
 		     	{
-		     		$log[] = "Added item_id field to moderation table.";
+		     		$log[] = mem_moderation_gTxt('add_item_field');
 		     	}
 		     	else
 		     	{
-		     		$log[] = "Failed to add field 'item_id' to moderation table.";
+		     		$log[] = mem_moderation_gTxt('add_item_field_failed');
 		     	}
 			}
 		}
@@ -1298,21 +1311,23 @@ EOF;
 				$form_html = doSlash($form_html);
 				if (safe_insert('txp_form',"name='mod_submission_list',type='misc',Form='{$form_html}'"))
 				{
-					$log[] = "Created form 'mod_submission_list'";
+					$log[] = mem_moderation_gTxt('form_created', array('{form}' => 'mod_submission_list'));
 				}
 				else
 				{
-					$log[] = "Failed to create form 'mod_submission_list'. " . mysql_error();
+					$log[] = mem_moderation_gTxt('form_create_failed', array('{form}' => 'mod_submission_list', 'mysql_error' => mysql_error()));
 				}
 			}
 			else
 			{
-				$log[] = "Found form 'mod_submission_list'. Skipping installation of default form.";
+				$log[] = mem_moderation_gTxt('form_found', array('{form}' => 'mod_submission_list'));
 			}
+
+
 		} 
 		else
 		{
-			$log[] = "Skipping installation of default forms";
+			$log[] = mem_moderation_gTxt('skipping_form_install');
 		}
 
 		ob_end_clean();
