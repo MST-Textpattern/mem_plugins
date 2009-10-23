@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation_image';
 
-$plugin['version'] = '0.7.2';
+$plugin['version'] = '0.7.5';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Moderation plugin that allows user to submit images.';
@@ -241,7 +241,7 @@ EOF;
 			}
 			else if ($step == 'img_display')
 			{
-				mem_moderation_image_presenter_img($event, $step);
+				mem_moderation_image_presenter_img();
 			}
 			else
 			{
@@ -270,9 +270,88 @@ function image_moderate_form()
 	return image_presenter('image',$data);
 }
 
-//register_callback('mem_mod_article_form_defaults', 'mem_form.defaults');
-//register_callback('mem_moderation_image_form_display', 'mem_form.display','',1);
+register_callback('mem_moderation_image_form_defaults', 'mem_form.defaults');
+register_callback('mem_moderation_image_form_display', 'mem_form.display','');
 register_callback('mem_moderation_image_form_submitted', 'mem_form.submit');
+
+function mem_moderation_image_form_defaults()
+{
+	global $mem_form, $mem_form_type, $mem_form_default, $mem_mod_info, $mem_modarticle_info;
+
+	// type check
+	if ($mem_form_type!='mem_moderation_image')
+	{
+		return;
+	}
+	
+	extract(gpsa(array('modid','articleid')));
+	
+	// editing mod item
+	if (!empty($modid))
+	{
+		// get mod data	
+		$mem_mod_info = safe_row('*','txp_moderation',"`id`='".doSlash($modid)."'");
+	
+		if ($mem_mod_info)
+		{
+			// set decoded
+			$mem_modarticle_info = mem_moderation_decode($mem_mod_info['data']);
+		}
+	}
+	// editing publish article
+	else if (!empty($articleid))
+	{
+		$rs = safe_row('*', 'textpattern',"`id`='".doSlash($articleid)."'");
+
+		// set mod data
+		$mem_modarticle_info = array();
+		foreach($rs as $k => $v)
+		{
+			$mem_modarticle_info[strtolower($k)] = $v;
+		}
+	}
+
+	if (is_array($mem_modarticle_info))
+	{
+		// set defaults
+		foreach($mem_modarticle_info as $key => $val)
+		{
+			mem_form_default($key, $val);
+		}
+	}
+}
+
+function mem_moderation_image_form_display()
+{
+	global $mem_form_type, $mem_mod_info, $mem_modarticle_info;
+
+	// type check
+	if ($mem_form_type!='mem_moderation_image')
+	{
+		return;
+	}
+	
+	$out = '';
+	if (isset($mem_mod_info))
+	{
+		$out .= n.'<input type="hidden" name="modid" value="'.htmlspecialchars($mem_mod_info['id']).'" />'.
+			n.'<input type="hidden" name="type" value="'. htmlspecialchars($mem_mod_info['type']).'" />';
+
+		if ($mem_mod_info['type'] == 'article-edit' && isset($mem_modarticle_info['articleid']))
+			$out .= n.'<input type="hidden" name="articleid" value="'.$mem_modarticle_info['articleid'].'" />';
+		
+		mem_form_store('modid', 'modid', $mem_mod_info['id']);
+		mem_form_store('type', 'type', $mem_mod_info['type']);
+	}
+	else if (isset($mem_modarticle_info))
+	{
+		$out .= n.'<input type="hidden" name="articleid" value="'.htmlspecialchars($mem_modarticle_info['articleid']).'" />'.
+			n.'<input type="hidden" name="type" value="article" />';
+	}
+	
+	return $out;
+}
+
 
 function mem_moderation_image_form($atts, $thing='')
 {
@@ -290,6 +369,9 @@ function mem_moderation_image_form($atts, $thing='')
 	}
 
 	$secrets = array();
+	
+	$modid = gps('modid');
+	if (!empty($modid)) $secrets[] = 'modid';
 
 	foreach($secrets as $a)
 	{
@@ -308,7 +390,7 @@ function mem_moderation_image_form_submitted()
 		return;
 
 	extract($mem_form_values);
-	
+
 	if (isset($action))
 	{
 		$is_save = $action == 'mem_moderation_save';
@@ -511,6 +593,8 @@ function mem_image_save($step)
 		// public mem_form
 		$varray = $mem_form_values;
 		$is_mem_form = true;
+
+		$varray['id'] = $id = @$varray['modid'];
 	}
 	else
 	{
@@ -548,7 +632,7 @@ function mem_image_save($step)
 
 	if ($step=='image_update') 
 	{
-		if (update_moderated_content($id,$varray['note'],$varray)) 
+		if (update_moderated_content($id, @$varray['note'], $varray)) 
 		{
 			$res = "Update link '$id'";
 		}
@@ -625,6 +709,11 @@ function mem_image_save($step)
 				$varray['tmpfile'] = $pending_file;
 				$varray['user'] = $txp_user;
 				$email = safe_field('email','txp_users',"name='".doSlash($txp_user)."'");
+				
+				if (!isset($varray['note']))
+				{
+					$varray['note'] = $varray['name'];
+				}
 
 				$res = submit_moderated_content('image',$email,$varray['note'],$varray);
 
@@ -665,7 +754,7 @@ function modimg_img($atts) {
 }
 
 
-function mem_moderation_image_presenter_img($event, $step)
+function mem_moderation_image_presenter_img()
 {
 	global $tempdir;
 	
@@ -751,8 +840,6 @@ function mem_moderation_image_presenter($type,$data) {
 
 		$section_select = ($rs) ? selectInput("article_section", $rs, @$article_section) : '';
 
-dmp($section);
-
 		$out .= '<h3><a href="#"'.gTxt('article').'</h3>';
 
 		$out .= '<table cellpadding="3" cellspacing="0" border="0" id="edit2" align="center" '.
@@ -771,13 +858,49 @@ dmp($section);
 
 				'';
 
+		$custom_fields = safe_rows('name, val, html', 'txp_prefs', "name like 'custom_%_set' and event = 'custom'");
 
-		for($i=1;$i<=10;$i++) {
-			$k = "article_custom_{$i}";
-			$kset = "custom_{$i}_set";
-			if (isset($$kset) and !empty($$kset))
-				$out .= tr(	fLabelCell( @$$kset ) . fInputCell( $k, @$$k, 1, 30 ) );
+		if ($custom_fields)
+		{
+			foreach($custom_fields as $field)
+			{
+				extract($field);
+				
+				$tr = fLabelCell( $val );
+				
+				$k = 'article_' . implode('_', explode('_', $name, -1));
+				
+				switch ($html)
+				{
+					case 'select':
+						// get values
+						$items = safe_column('value', 'custom_fields', "name = '{$name}'");
+						
+						$tr .= tda(
+							selectInput($k, $items, @$$k),
+							' class="noline"'
+						);
+						break;
+					default:
+						$tr .= fInputCell( $k, @$$k, 1, 30 );
+						break;
+				}
+				
+				$out .= tr($tr);
+			}
 		}
+		else
+		{
+			for($i=1;$i<=20;$i++) {
+				$k = "article_custom_{$i}";
+				$kset = "custom_{$i}_set";
+				if (isset($$kset) and !empty($$kset))
+				{
+					$out .= tr(	fLabelCell( @$$kset ) . fInputCell( $k, @$$k, 1, 30 ) );
+				}
+			}
+		}
+
 
 		$out .= endTable();
 		$out .= hInput('tmpfilename',$tmpfilename);
@@ -807,8 +930,6 @@ function mem_moderation_image_approver($type, $data)
 				$data['ext'] = substr($tmpname, $pos, strlen($tmpname)-$pos);
 			}
 		}
-		
-		dmp($data);
 		
 		extract($data);
 
