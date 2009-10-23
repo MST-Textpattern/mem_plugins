@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation_article';
 
-$plugin['version'] = '0.7.1';
+$plugin['version'] = '0.7.5';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Moderation plugin that allows articles to be submitted to the moderation queue.';
@@ -198,7 +198,7 @@ p(tag-summary). Display a textarea field for the note (to the moderators)
 require_plugin('mem_moderation');
 
 
-global $event, $step, $prefs, $mem_article_vars, $mem_article_delete_vars, $mem_glz_custom_fields_plugin, $mem_moderation_lang;
+global $event, $step, $prefs, $mem_article_vars, $mem_article_delete_vars, $mem_moderation_lang;
 
 $mem_moderation_lang = array_merge($mem_moderation_lang, array(
 	'mem_mod_pub_bypass_queue'	=>	'Publishers bypass queue delay?',
@@ -216,42 +216,6 @@ $mem_article_vars = array('note','user','email','modid','id','articleid',
 // article-delete vars
 $mem_article_delete_vars = array('user','email','articleid','title');
 
-// load glz_custom_fields if installed
-$mem_glz_custom_fields_plugin = @load_plugin('glz_custom_fields');
-
-if ($mem_glz_custom_fields_plugin && ($event == "moderate" or txpinterface == 'public'))
-{
-	// glz may add custom fields. Add var names to known list
-	$g_fields = array_filter(glz_custom_fields_MySQL("all"), "glz_check_custom_set");
-	
-	foreach ( $g_fields as $custom_field )
-	{
-		$mem_article_vars[] = @glz_custom_number($custom_field['custom_set']);
-	}
-	
-	$mem_article_vars = array_unique($mem_article_vars);	
-
-	// should css/js get inlined?
-	if (@$prefs['mem_mod_article_use_glz_custom_css'])
-	{
-		ob_start("glz_custom_fields_css_js");
-	}
-	
-	// process custom fields
-	glz_custom_fields_before_save();
-	
-	// step not auto-set on public side
-	if (!isset($step))
-	{
-		$step = gps('step');
-	}
-	
-	if ( $step == "details" || $step == "article_save" || $step == 'article_post') 
-	{
-		// we need to make sure that all custom field values will be converted to strings first - think checkboxes
-		register_callback("glz_custom_fields_before_save", "moderate", '', 1);
-	}
-}
 
 // Include the article page when safe to do so
 if ((@txpinterface=='admin' and ($event=='moderate' or $event=='article_moderate')) or @txpinterface!='admin')
@@ -377,11 +341,6 @@ EOF;
 			{
 				set_pref('mem_mod_article_edit_resets_time', '0', 'mem_moderation', 1, 'yesnoradio');
 				$log[] = "Set preference mem_mod_article_edit_resets_time";
-			}
-			if (!isset($prefs['mem_mod_article_use_glz_custom_css']))
-			{
-				set_pref('mem_mod_article_use_glz_custom_css', '0', 'mem_moderation', 1, 'yesnoradio');
-				$log[] = "Set preference mem_mod_article_use_glz_custom_css";
 			}
 			if (!isset($prefs['mem_mod_article_submit_with_moderator_id']))
 			{
@@ -619,7 +578,7 @@ function mod_excerpt_html_input($atts)
 /** Article presenter for article* moderation types */	
 function mem_article_presenter($type,$data) 
 {
-	global $mem_article_delete_vars, $mem_glz_custom_fields_plugin, $mem_glz_custom_fields_plugin;
+	global $mem_article_delete_vars, $prefs;
 
 	$out = '';
 
@@ -668,6 +627,11 @@ function mem_article_presenter($type,$data)
 			'custom_13'	=> '',
 			'custom_14'	=> '',
 			'custom_15'	=> '',
+			'custom_16'	=> '',
+			'custom_17'	=> '',
+			'custom_18'	=> '',
+			'custom_19'	=> '',
+			'custom_20'	=> '',
 			'articleid'	=> 0
 		),$data));
 
@@ -695,14 +659,48 @@ function mem_article_presenter($type,$data)
 				tr( fLabelCell( 'override_default_form', '', 'override-form' ) . tda(form_pop($override_form,'override-form').popHelp('override_form'))) .
 				tr( fLabelCell( 'author' ) . fInputCell( 'user', $user, 1, 30 ));
 
-		// add up to 15 custom field forms
-		for($i=1;$i<=15;$i++) {
-			$k = "custom_{$i}";
-			$kset = "custom_{$i}_set";
-			if (isset($$kset) and !empty($$kset))
+		$custom_fields = safe_rows('name, val, html', 'txp_prefs', "name like 'custom_%_set' and event = 'custom'");
+
+		if ($custom_fields)
+		{
+			foreach($custom_fields as $field)
 			{
-				$out .= tr(	fLabelCell( $$kset, '', "customer-{$i}" ) . 
-							fInputCell( $k, $$k, 1, 30,'', "custom-{$i}" ) );
+				extract($field);
+				
+				$tr = fLabelCell( $val );
+				
+				$k = implode('_', explode('_', $name, -1));
+				
+				switch ($html)
+				{
+					case 'select':
+						// get values
+						$items = safe_column('value', 'custom_fields', "name = '{$name}'");
+						
+						$tr .= tda(
+							selectInput($k, $items, @$$k),
+							' class="noline"'
+						);
+						break;
+					default:
+						$tr .= fInputCell( $k, @$$k, 1, 30 );
+						break;
+				}
+				
+				$out .= tr($tr);
+			}
+		}
+		else
+		{	
+			// add custom field forms
+			for($i=1;$i<=20;$i++) {
+				$k = "custom_{$i}";
+				$kset = "custom_{$i}_set";
+				if (isset($$kset) and !empty($$kset))
+				{
+					$out .= tr(	fLabelCell( $$kset, '', "custom-{$i}" ) . 
+								fInputCell( $k, $$k, 1, 30,'', "custom-{$i}" ) );
+				}
 			}
 		}
 		$out .= endTable();
@@ -734,12 +732,6 @@ function mem_article_presenter($type,$data)
 				. $articleid.'">#'. $articleid .': "'. $title .'"</a>.</div>';
 	}
 
-	// allow glz to replace the custom fields
-	if ($mem_glz_custom_fields_plugin)
-	{
-		mem_glz_custom_fields_replace($data);
-	}
-
 	return $out;
 }
 
@@ -750,7 +742,7 @@ function mem_article_presenter($type,$data)
  */
 function mem_article_approver($type,$data)
 {
-	global $txpcfg, $txp_user, $mem_glz_custom_fields_plugin, $prefs;
+	global $txpcfg, $txp_user, $prefs;
 
 	if (!is_array($data))
 	{
@@ -848,14 +840,7 @@ function mem_article_approver($type,$data)
 			
 			if ($rs !== false)
 			{
-				// ID needed by glz
 				$GLOBALS['ID'] = mysql_insert_id();
-
-				// process custom fields
-				if ($mem_glz_custom_fields_plugin) 
-				{
-					glz_custom_fields_save();
-				}
 				
 				// ping on publish
 				if ($Status>=4) 
@@ -990,12 +975,9 @@ function mem_article_approver($type,$data)
 			"ID = $ID"
 		);
 
-		if ($rs and $mem_glz_custom_fields_plugin)
+		if ($rs)
 		{
-			// glz needs ID
 			$GLOBALS['ID'] = $ID;
-
-			glz_custom_fields_save();
 		}
 
 		if($Status >= 4) 
@@ -1438,8 +1420,7 @@ function mem_mod_article_form_defaults()
 
 function mem_mod_article_form_display()
 {
-	global $mem_form_type, $mem_form_labels, $mem_form_values, $mem_mod_info, $mem_modarticle_info,
-		$mem_glz_custom_fields_plugin;
+	global $mem_form_type, $mem_form_labels, $mem_form_values, $mem_mod_info, $mem_modarticle_info;
 
 	// type check
 	if ($mem_form_type!='mem_moderation_article')
@@ -1448,15 +1429,6 @@ function mem_mod_article_form_display()
 	}
 	
 	$out = '';
-
-	// glz integration
-	if ($mem_glz_custom_fields_plugin) 
-	{
-		ob_start();
-		mem_glz_custom_fields_replace($mem_modarticle_info);
-		$out .= ob_get_contents();
-		ob_end_clean();
-	}
 	
 	if (isset($mem_mod_info))
 	{
@@ -1592,138 +1564,6 @@ function mem_mod_article_form_submitted()
 
 	return $out;
 }
-
-
-// Integrate with glz_custom_fields plugin if detected
-if ($mem_glz_custom_fields_plugin)
-{
-	// -------------------------------------------------------------
-	// replaces the default custom fields under write tab
-	function mem_glz_custom_fields_replace($data=array())
-	{
-		if(is_array($data))
-			extract($data);
-
-		// get all custom fields & keep only the ones which are set
-		$arr_custom_fields = array_filter(glz_custom_fields_MySQL("all"), "glz_check_custom_set");
-	
-		//DEBUG
-		//dmp($arr_custom_fields);
-	
-		if ( is_array($arr_custom_fields) && !empty($arr_custom_fields) )
-		{
-			// get all custom fields values for this article
-			$arr_article_customs = array();mem_glz_article_custom_fields( glz_get_article_id(), $arr_custom_fields);
-			if ( is_array($arr_article_customs) ) extract($arr_article_customs);
-	
-			// let's initialize our output
-			$out = array();
-	
-			// let's see which custom fields are set
-			foreach ( $arr_custom_fields as $custom_field )
-			{
-				// get all possible/default value(s) for this custom field from custom_fields table
-				$arr_custom_field_values = @glz_custom_fields_MySQL("values", $custom_field['custom_set'], '', array('custom_set_name' => $custom_field['custom_set_name']));
-	
-				//DEBUG
-				//dmp($arr_custom_field_values);
-	
-				//custom_set without "_set" e.g. custom_1_set => custom_1
-				$custom_set = @glz_custom_number($custom_field['custom_set']);
-
-				// if current article holds no value for this custom field, make it empty
-				$custom_value = ( !empty($$custom_set) ) ? $$custom_set : '';
-	
-				// the way our custom field value is going to look like
-				switch ( @$custom_field['custom_set_type'] )
-				{
-					case "text_input":
-						$custom_set_value = fInput("text", $custom_set, $custom_value, "edit", "", "", "22", "", $custom_set);
-						break;
-	
-					case "select":
-						$custom_set_value = glz_selectInput($custom_set, $arr_custom_field_values, $custom_value, 1);
-						break;
-	
-					case "checkbox":
-							$custom_set_value = glz_checkbox($custom_set, $arr_custom_field_values, $custom_value);
-						break;
-	
-					case "radio":
-						$custom_set_value = glz_radio($custom_set, $arr_custom_field_values, $custom_value);
-						break;
-	
-					// if none of the custom_set_types fit - WHICH HINTS TO A BUG - text input is default
-					default:
-						//$custom_set_value = fInput("text", $custom_set, $$custom_set, "edit", "", "", "22", "", $custom_set);
-						$custom_set_value = 'Type not supported yet.';
-						break;
-				}
-	
-				if (constant('txpinterface')=='admin')
-					$out[str_replace('_','-',$custom_set)] = $custom_set_value;
-				else
-					$out[$custom_set] = $custom_set_value;
-			}
-			//DEBUG
-			//dmp($out);
-	
-			echo
-			'<script type="text/javascript">
-			<!--//--><![CDATA[//><!--
-	
-			$(document).ready(function() {
-			';
-			
-			$i = 0;
-			foreach($out as $k=>$v) {
-				echo <<<EOJS
-					$(":input[name=$k]").each(function() {
-						if ( !$(this).hasClass('memNoGLZ') ) {
-							var oldcss = $(this).attr('class');
-							var oldval = $(this).val();
-							
-							$(this).replaceWith(
-								$('$v').val(oldval).attr("class", oldcss)
-							);
-						}
-					});
-EOJS;
-			}
-			
-			echo '
-			});
-			//--><!]]>
-			</script>';
-		}
-	}
-
-	/** fetch the custom field values from txp_moderation table */
-	function mem_glz_article_custom_fields($name, $extra)
-	{
-		global $mem_modarticle_info;
-		
-		if ( is_array($extra) )
-		{
-			$arr_article_customs = array();
-
-			// see what custom fields we need to query for
-			foreach ( $extra as $custom_set )
-			{
-				$select = @glz_custom_number($custom_set['custom_set']);
-				
-				$arr_article_customs[$select] = $mem_modarticle_info[$select];
-			}
-	
-			return $arr_article_customs;
-		}
-		else
-		{
-			trigger_error(glz_custom_fields_gTxt('not_specified', array('{what}' => "extra attributes")));
-		}
-}
-
-} // if mem_glz_custom_fields
 
 # --- END PLUGIN CODE ---
 
