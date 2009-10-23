@@ -8,7 +8,7 @@
 // Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation';
 
-$plugin['version'] = '0.7.2';
+$plugin['version'] = '0.7.3';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin adds a generic moderation queue to Textpattern. A plugin can extend the moderation queue to support any type of content.';
@@ -389,7 +389,7 @@ require_plugin('mem_admin_parse');
 /** Show a submission list. User profile page. */
 function moderate_submission_list($atts,$thing='')
 {
-	global $step,$link_list_pageby,$mod_event,$txp_user,$ign_user,$mem_mod_info;
+	global $step,$link_list_pageby,$mod_event,$txp_user,$ign_user;
 	
 	// try looking for user from ign_password_protect plugin
 	if (isset($ign_user) and empty($txp_user)) $txp_user = $ign_user;
@@ -426,12 +426,13 @@ function moderate_submission_list($atts,$thing='')
 	{
 		$out = array();
 
-		while ($mem_mod_info = nextRow($rs)) 
+		while ($r = nextRow($rs)) 
 		{
+			$GLOBALS['mem_mod_info'] = $r;
 			$out[] = admin_parse($Form);
 
 			// clean up global			
-			unset($mem_mod_info);
+			unset($GLOBALS['mem_mod_info']);
 		}
 
 		$items = '';
@@ -440,7 +441,7 @@ function moderate_submission_list($atts,$thing='')
 		{
 			$items = doTag($label,$labelwraptag,$labelclass);
 		}
-	
+
 		return $items . doWrap($out,$wraptag,$break,$class,$breakclass);
 	}
 
