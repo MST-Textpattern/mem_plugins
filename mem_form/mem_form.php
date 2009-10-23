@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 // $Rev$ $LastChangedDate$
-$plugin['version'] = '0.6';
+$plugin['version'] = '0.7';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -727,7 +727,8 @@ function mem_form_file($atts)
 		'accept'	=> '',
 		'no_replace' => 1,
 		'max_file_size'	=> $file_max_upload_size,
-		'required'	=> 1
+		'required'	=> 1,
+		'default'	=> FALSE,
 	), $atts));
 
 	$fname = ps('file_'.$name);
@@ -827,11 +828,20 @@ function mem_form_file($atts)
 	}
 	else
 	{
-// no default needed
-//		if (isset($mem_form_default[$name]))
-//			$value = $mem_form_default[$name];
-//		else
-//			$value = $default;
+		if (isset($mem_form_default[$name]))
+			$value = $mem_form_default[$name];
+		else if (is_array($default))
+			$value = $default;
+
+		if (is_array($value))
+		{
+			$fname = @$value['tmp_name'];
+			$frealname = @$value['name'];
+			$ftype = @$value['type'];
+			$out .= "<input type='hidden' name='file_".$name."' value='".htmlspecialchars($fname)."' />"
+				. "<input type='hidden' name='file_info_".$name."_name' value='".htmlspecialchars($frealname)."' />"
+				. "<input type='hidden' name='file_info_".$name."_type' value='".htmlspecialchars($ftype)."' />";
+		}
 	}
 	
 	$memRequired = $required ? 'memRequired' : '';
