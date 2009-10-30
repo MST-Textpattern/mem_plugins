@@ -8,7 +8,7 @@
 // Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation';
 
-$plugin['version'] = '0.7.3';
+$plugin['version'] = '0.7.4';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin adds a generic moderation queue to Textpattern. A plugin can extend the moderation queue to support any type of content.';
@@ -291,6 +291,9 @@ $mem_moderation_lang = array(
 	'remove_failed'	=> "Failed to remove ID {id} from queue.",
 	'new_submission_email'	=> "The user {user} has submitted a request of type {type} to the moderation queue.",
 	'new_submission_email_subject'	=> "Moderation Queue",
+	'update_submission_email'	=> "The user {user} has updated their request of type {type} to the moderation queue.",
+	'update_submission_email_subject'	=> "Moderation Queue",
+
 	'table_access_failed'	=>	"Error accessing the database table. {err}",
 
 	// installation
@@ -311,6 +314,7 @@ $mem_moderation_lang = array(
 	
 	// prefs
 	'mem_mod_email_on_new'	=>	'Email on new content?',
+	'mem_mod_email_on_update'	=>	'Email on content update?',
 	'mem_mod_notify_email'	=>	'Notification Email Address',
 	'mem_mod_queue_delay'	=>	'Queue Delay (days)',
 	'mem_mod_multiedit_approve'	=>	'Enable Multi-edit approval?',
@@ -942,6 +946,8 @@ function submit_moderated_content($type,$email,$desc,$data,$item_id='0')
 /** Update an entry in the moderation queue */
 function update_moderated_content($id,$desc,$data,$type='',$item_id='') 
 {
+	global $mem_mod_email_on_update, $mem_mod_notify_email;	
+
 	$encoded_data = mem_moderation_encode($data);
 
 	$set = "`desc` = '". doSlash($desc)."', `data` = '$encoded_data'";
@@ -956,7 +962,25 @@ function update_moderated_content($id,$desc,$data,$type='',$item_id='')
 		$set .= ", `item_id` = ".doSlash($item_id);
 	}
 
-	return safe_update('txp_moderation', $set, "id='".doSlash($id)."'");
+	$r = safe_update('txp_moderation', $set, "id='".doSlash($id)."'");
+	
+	if (@txpinterface != 'admin')
+	{
+		if ($mem_mod_email_on_update && !empty($mem_mod_notify_email))
+		{
+			$rs = safe_row('user,type', 'txp_moderation', "id='".doSlash($id)."'");
+			if ($rs)
+				extract($rs);
+
+			$message = mem_moderation_gTxt('update_submission_email', array('{user}'=> $user, '{type}'=> $type));
+			$reply = $from = $to = $mem_mod_notify_email;
+			$subject = "[$sitename] " . mem_moderation_gTxt('update_submission_email_subject');
+			
+			$sent = @mem_form_mail($from, $reply, $to, $subject, $message);
+		}
+	}
+	
+	return $r;
 }
 
 /** Remove an item from the moderation queue */
@@ -1233,6 +1257,11 @@ if (@txpinterface == 'admin')
 		{
 			set_pref('mem_mod_email_on_new', '', 'mem_moderation', 1, 'yesnoradio');
 			$log[] = mem_moderation_gTxt('set_pref', array('{name}' => 'mem_mod_email_on_new'));
+		}
+		if (!isset($prefs['mem_mod_email_on_update'])) 
+		{
+			set_pref('mem_mod_email_on_update', '', 'mem_moderation', 1, 'yesnoradio');
+			$log[] = mem_moderation_gTxt('set_pref', array('{name}' => 'mem_mod_email_on_update'));
 		}
 		if (!isset($prefs['mem_mod_queue_delay']))
 		{
