@@ -419,7 +419,7 @@ function mem_form($atts, $thing='')
 		$mem_form, $mem_form_labels, $mem_form_values, 
 		$mem_form_default, $mem_form_type, $mem_form_thanks_form,
 		$mem_glz_custom_fields_plugin;
-	
+
 	extract(mem_form_lAtts(array(
 		'form'		=> '',
 		'thanks_form'	=> '',
@@ -833,7 +833,7 @@ function mem_form_file($atts)
 		else if (is_array($default))
 			$value = $default;
 
-		if (is_array($value))
+		if (is_array(@$value))
 		{
 			$fname = @$value['tmp_name'];
 			$frealname = @$value['name'];
