@@ -1149,13 +1149,16 @@ function mem_article_action_link($atts,$thing='')
 
 	extract(lAtts(array(
 		'action'	=> 'delete',
-		'text'	=> mem_moderation_gTxt($action),
+		'text'	=> '',
 		'url'	=> '',
 		'mode'	=> '',
 		'prompt'	=> '',
 	),$atts));
 
 	$action = strtolower($action);
+
+	if (empty($text))
+		$text = mem_moderation_gTxt($action);
 
 	if (empty($url)) 
 	{
@@ -1239,8 +1242,8 @@ function mem_custom_user_article_list($atts, $thing='')
 	extract($pretext);
 	extract($prefs);
 	// custom fields and titles
-	$customFields = getCustomFields();
-	$customlAtts = array_null(array_flip($customFields));
+	//$customFields = getCustomFields();
+	$customlAtts = array(); //array_null(array_flip($customFields));
 
 	// need a user
 	$userid = isset($txp_user) ? @$txp_user : @$ign_user;
@@ -1293,20 +1296,6 @@ function mem_custom_user_article_list($atts, $thing='')
 
 	$custom = '';
 
-	if ($customFields) {
-		foreach($customFields as $cField)
-		{
-			if (isset($atts[$cField]))
-			{
-				$customPairs[$cField] = $atts[$cField];
-			}
-		}
-		if(!empty($customPairs))
-		{
-			$custom = buildCustomSql($customFields,$customPairs);
-		}
-	}
-
 	if ($useridfield)
 	{
 		$custom .= ' and '. doSlash($useridfield) ."='{$userid}' ";
@@ -1317,9 +1306,12 @@ function mem_custom_user_article_list($atts, $thing='')
 	// composit parts
 	$where = "1=1" . $statusq. $time.
 		$category . $section . $month . $author . $custom ;
+	
+	$offset = assert_int($offset);
+	$limit = assert_int($limit);
 
-	$rs = safe_rows_start("*, unix_timestamp(Posted) as uPosted".$match, 'textpattern',
-			$where.' order by '.doSlash($sort).' limit '.intval($offset).', '.intval($limit));
+	$rs = safe_rows_start("*, unix_timestamp(Posted) as uPosted, unix_timestamp(Expires) as uExpires, unix_timestamp(LastMod) as uLastMod".$match, 'textpattern',
+			$where.' order by '.doSlash($sort).' limit '.$offset.', '.$limit);
 
 	if ($rs)
 	{
