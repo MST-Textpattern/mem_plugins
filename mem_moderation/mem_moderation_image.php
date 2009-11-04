@@ -341,7 +341,10 @@ function mem_moderation_image_form_defaults()
 				
 				if (file_exists($file))
 				{
-					$type = mime_content_type($file);
+					$type = '';
+					if (function_exists('mime_content_type'))
+						$type = @mime_content_type($file);
+						
 					if (empty($type))
 					{
 						switch($rs['ext'])
