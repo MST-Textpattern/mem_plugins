@@ -707,77 +707,103 @@ function mem_image_save($step)
 			$file = get_uploaded_file($file);
 	
 		}
+		
+		$varray['user'] = $txp_user;
+		$email = safe_field('email','txp_users',"name='".doSlash($txp_user)."'");
 
-		$varray['tmpfilename'] = MEM_MOD_ARTICLE_TMP_FILE_PREFIX . basename($file) . $name;
-		$pending_file = $prefs['tempdir'] . DS . $varray['tmpfilename'];
-		list($w,$h,$extension) = getimagesize($file);
-
-		if ($extensions[$extension]) 
+		if (!empty($file))
 		{
-			list($width,$height) = modimg_get_image_dimensions();
-
-			if (class_exists('wet_thumb'))
+	
+			$varray['tmpfilename'] = MEM_MOD_ARTICLE_TMP_FILE_PREFIX . basename($file) . $name;
+			$pending_file = $prefs['tempdir'] . DS . $varray['tmpfilename'];
+			list($w,$h,$extension) = getimagesize($file);
+	
+			if ($extensions[$extension]) 
 			{
-				$sharpen = (@$prefs['mem_mod_img_sharpen'] == 1 || @$prefs['mem_mod_img_sharpen'] === true);
-				
-				$quality = @$prefs['mem_mod_img_quality'];
-				if ($quality === false || empty($quality) || !is_numeric($quality) || ($quality < 0 || $quality > 100))
-					$quality = 80;
-
-				$t = new wet_thumb();
-				
-				// remove icon
-				$t->hint = false;
-				$t->crop = false;
-				$t->addgreytohint = false;
-				$t->quality = $quality;
-				$t->sharpen = false; //$sharpen;
-				
-				if ($w > $h)
-					$t->width = $width;
-				else
-					$t->height = $height;
-
-				if ($t->write($file,$file.'.resized'))
+				list($width,$height) = modimg_get_image_dimensions();
+	
+				if (class_exists('wet_thumb'))
 				{
-					unlink($file);
-					$file = $file.'.resized';
+					$sharpen = (@$prefs['mem_mod_img_sharpen'] == 1 || @$prefs['mem_mod_img_sharpen'] === true);
 					
-					$w = $t->width;
-					$h = $t->height;
+					$quality = @$prefs['mem_mod_img_quality'];
+					if ($quality === false || empty($quality) || !is_numeric($quality) || ($quality < 0 || $quality > 100))
+						$quality = 80;
+	
+					$t = new wet_thumb();
+					
+					// remove icon
+					$t->hint = false;
+					$t->crop = false;
+					$t->addgreytohint = false;
+					$t->quality = $quality;
+					$t->sharpen = false; //$sharpen;
+					
+					if ($w > $h)
+						$t->width = $width;
+					else
+						$t->height = $height;
+	
+					if ($t->write($file,$file.'.resized'))
+					{
+						unlink($file);
+						$file = $file.'.resized';
+						
+						$w = $t->width;
+						$h = $t->height;
+					}
+	
+					unset($t);
 				}
-
-				unset($t);
-			}
-			
-			if (shift_uploaded_file($file, $pending_file) != false)
-			{
-				$varray['w'] = $w;
-				$varray['h'] = $h;
-
-				$varray['ext'] = $extensions[$extension];
-				$varray['name'] = substr($name,0,strrpos($name,'.')) . $varray['ext'];
-				$varray['tmpfile'] = $pending_file;
-				$varray['user'] = $txp_user;
-				$email = safe_field('email','txp_users',"name='".doSlash($txp_user)."'");
 				
-				if (!isset($varray['note']))
+				if (shift_uploaded_file($file, $pending_file) != false)
 				{
-					$varray['note'] = $varray['name'];
-				}
+					$varray['w'] = $w;
+					$varray['h'] = $h;	
+					$varray['ext'] = $extensions[$extension];
+					$varray['name'] = substr($name,0,strrpos($name,'.')) . $varray['ext'];
+					$varray['tmpfile'] = $pending_file;
 
-				$res = submit_moderated_content('image',$email,$varray['note'],$varray);
-
-				if ($res) {
-					$res = ''; //"Submitted Image '$res'";
+					
+					if (!isset($varray['note']))
+					{
+						$varray['note'] = $varray['name'];
+					}
+	
+					$res = submit_moderated_content('image',$email,$varray['note'],$varray);
+	
+					if ($res) {
+						$res = ''; //"Submitted Image '$res'";
+					} else {
+						$res = "Failed to submit image";
+					}
 				} else {
-					$res = "Failed to submit image";
+					$res = "Failed to upload image";
 				}
 			} else {
-				$res = "Failed to upload image";
+				$res = "'{$extension}' is an unapproved extension";
 			}
-		} else {
-			$res = "'{$extension}' is an unapproved extension";
+		} // if !$file
+		else
+		{
+			if ($prefs['mem_mod_img_wrap_with_article'])
+			{
+				if (empty($varray['note']) && !empty($varray['article_title']))
+				{
+					$varray['note'] = $varray['article_title'];
+				}
+				
+				$res = submit_moderated_content('image',$email,$varray['note'],$varray);
+				
+				if ($res)
+				{
+					$res = '';
+				}
+				else 
+				{
+					$res = 'Failed to submit image';
+				}
+			}
 		}
 	}
 
@@ -853,22 +879,25 @@ function mem_moderation_image_presenter($type,$data) {
 		if (empty($data['article_user'])) $data['article_user'] = @$data['author'];
 		if (empty($data['article_wrap_enabled'])) $data['article_wrap_enabled'] = $wrap_default;
 
-		if (empty($data['tmpfilename']))
+		if (!empty($data['thefile']['tmp_name']))
 		{
-			$data['tmpfilename'] = MEM_MOD_ARTICLE_TMP_FILE_PREFIX . basename($data['thefile']['tmp_name']) . $data['thefile']['name'];
+			if (empty($data['tmpfilename']))
+			{
+				$data['tmpfilename'] = MEM_MOD_ARTICLE_TMP_FILE_PREFIX . basename($data['thefile']['tmp_name']) . $data['thefile']['name'];
+			}
+			
+			if (empty($data['name']))
+			{
+				$data['name'] = $data['thefile']['name'];
+			}
+	
+			$filename = (empty($data['tmpfile']) ? $tempdir . DS . $data['tmpfilename'] : $data['tmpfile']);
+	
+			$dimensions = getimagesize($filename);
+			
+			$data['w'] = $dimensions[0];
+			$data['h'] = $dimensions[1];
 		}
-		
-		if (empty($data['name']))
-		{
-			$data['name'] = $data['thefile']['name'];
-		}
-
-		$filename = (empty($data['tmpfile']) ? $tempdir . DS . $data['tmpfilename'] : $data['tmpfile']);
-
-		$dimensions = getimagesize($filename);
-		
-		$data['w'] = $dimensions[0];
-		$data['h'] = $dimensions[1];
 		
 		extract($data);
 
@@ -882,14 +911,15 @@ function mem_moderation_image_presenter($type,$data) {
 		$selects = event_category_popup("image", @$category, '');
 		$textarea = '<textarea name="caption" cols="40" rows="7" tabindex="4">'.htmlspecialchars(@$caption).'</textarea>';
 
-		$imgtag = '<img src="'.mem_moderation_image_tempurl($tmpfilename).'" width="'.$data['w'].'" height="'.$data['h'].'" />';
+		if (isset($tmpfilename))
+			$imgtag = '<img src="'.mem_moderation_image_tempurl($tmpfilename).'" width="'.$data['w'].'" height="'.$data['h'].'" />';
 
 		$out = startTable( 'edit' ) .
-				tr( tdcs( $imgtag, 2) ) .
-				tr( fLabelCell( 'name' ) . fInputCell( 'name', $name, 1, 30 )) .
+				(isset($imgtag) ? tr( tdcs( @$imgtag, 2) ) : '').
+				tr( fLabelCell( 'name' ) . fInputCell( 'name', @$name, 1, 30 )) .
 				tr( fLabelCell( 'alt') .fInputCell( 'alt', @$alt, 2, 15 )) .
 				tr( fLabelCell( 'image_category', 'category' ) . td( $selects ) ) .
-				tr( fLabelCell( 'image_dimensions' ) . td( $w . 'x' . $h ) ) .
+				(isset($w) ? tr( fLabelCell( 'image_dimensions' ) . td( @$w . 'x' . @$h ) ) : '').
 				tr( fLabelCell( 'caption' ) . tda( $textarea, ' valign="top"' ) ) .
 				($create_article ? tr( fLabelCell( 'article_wrap' ) . tda( yesnoRadio('article_wrap_enabled', $article_wrap_enabled) )) : '') .				
 				endTable();
@@ -966,10 +996,10 @@ function mem_moderation_image_presenter($type,$data) {
 
 
 		$out .= endTable();
-		$out .= hInput('tmpfilename',$tmpfilename);
+		$out .= hInput('tmpfilename',@$tmpfilename);
 		$out .= hInput('author', $user);
-		$out .= hInput('w',$w);
-		$out .= hInput('h',$h);
+		$out .= hInput('w',@$w);
+		$out .= hInput('h',@$h);
 
 	}
 
@@ -982,7 +1012,7 @@ function mem_moderation_image_approver($type, $data)
 
 	if ($type=='image' && is_array($data))
 	{
-		if (empty($data['tmpfilename']))
+		if (empty($data['tmpfilename']) && !empty($data['tmpfilename']))
 		{
 			$data['tmpfilename'] = MEM_MOD_ARTICLE_TMP_FILE_PREFIX . basename($data['thefile']['tmp_name']) . $data['thefile']['name'];
 		}
@@ -1002,32 +1032,40 @@ function mem_moderation_image_approver($type, $data)
 
 		$rs_trans = safe_query("START TRANSACTION");
 		
-		// insert record
-		$q = safe_insert("txp_image",
-		   "name	    = '".doSlash($name)."',
-			category    = '".doSlash($category)."',
-			ext			= '$ext',"
-			.(!empty($w) ?"w			= $w," : '')
-			.(!empty($h) ?"h			= $h," : '')
-			."
-			alt         = '".doSlash($alt)."',
-			caption     = '".doSlash($caption)."',
-			date		= now(),
-			author		= '".doSlash($author)."'"
-		);
-		
-		// get id
-		$id = mysql_insert_id();
-
-		if ($q===false) {
-			safe_query("ROLLBACK");
-			return 'failed to insert image';
-		}
-		
-		if ($article_wrap_enabled) {
+		if (!empty($tmpfilename))
+		{
+			// insert record
+			$q = safe_insert("txp_image",
+			   "name	    = '".doSlash($name)."',
+				category    = '".doSlash($category)."',
+				ext			= '$ext',"
+				.(!empty($w) ?"w			= $w," : '')
+				.(!empty($h) ?"h			= $h," : '')
+				."
+				alt         = '".doSlash($alt)."',
+				caption     = '".doSlash($caption)."',
+				date		= now(),
+				author		= '".doSlash($author)."'"
+			);
+			
+			// get id
+			$id = mysql_insert_id();
+	
+			if ($q===false) {
+				safe_query("ROLLBACK");
+				return 'failed to insert image';
+			}
+			
 			// link image to wrapper article
 			$data['article_image'] = $id;
-
+		}
+		else
+		{
+			$id = 0;
+		}
+		
+		if ($article_wrap_enabled)
+		{
 			$result = modimg_wrap_image($data);
 			
 			if (!empty($result)) {
@@ -1037,43 +1075,49 @@ function mem_moderation_image_approver($type, $data)
 			}
 		}
 
-		// write file to images folder
-		$path = IMPATH . $id . $ext;
-		$tmpfile = $prefs['tempdir'] . DS . $tmpfilename;
-
-		if (file_exists($tmpfile)) {
-			if (shift_uploaded_file($tmpfile, $path)) {
-				$failed = false;
-				chmod($path, 0755);
+		if ($id)
+		{
+			// write file to images folder
+			$path = IMPATH . $id . $ext;
+			$tmpfile = $prefs['tempdir'] . DS . $tmpfilename;
+	
+			if (file_exists($tmpfile)) {
+				if (shift_uploaded_file($tmpfile, $path)) {
+					$failed = false;
+					chmod($path, 0755);
+				} else {
+	//				unlink($tmpfile);
+					safe_query("ROLLBACK");
+					return 'Failed to move image file';
+				}
 			} else {
-//				unlink($tmpfile);
 				safe_query("ROLLBACK");
-				return 'Failed to move image file';
+				return "Image file '{$tmpfile}' does not exist.";
 			}
-		} else {
-			safe_query("ROLLBACK");
-			return "Image file '{$tmpfile}' does not exist.";
 		}
 
 		// commit it all. thumbnail is not critical
 		safe_query("COMMIT");
 
-		// get thumbnail dimenions
-		list($t_width,$t_height) = modimg_get_image_dimensions(true);
-		$t_crop = $prefs['mem_mod_img_thumbnail_crop'];
-
-		$t = new txp_thumb( $id );
-		$t->crop = ($t_crop == '1');
-		$t->hint = '0';
-		if ( is_numeric($t_width) && is_numeric($t_height) ) {
-			if ($w > $h)
-				$t->width = $t_width;
-			else
-				$t->height = $t_height;
-		}
+		if ($id)
+		{
+			// get thumbnail dimenions
+			list($t_width,$t_height) = modimg_get_image_dimensions(true);
+			$t_crop = $prefs['mem_mod_img_thumbnail_crop'];
+	
+			$t = new txp_thumb( $id );
+			$t->crop = ($t_crop == '1');
+			$t->hint = '0';
+			if ( is_numeric($t_width) && is_numeric($t_height) ) {
+				if ($w > $h)
+					$t->width = $t_width;
+				else
+					$t->height = $t_height;
+			}
 		
-		if (!$t->write()) {
-			return 'Failed to create thumbnail';
+			if (!$t->write()) {
+				return 'Failed to create thumbnail';
+			}
 		}
 	}
 }
