@@ -946,7 +946,7 @@ function submit_moderated_content($type,$email,$desc,$data,$item_id='0')
 /** Update an entry in the moderation queue */
 function update_moderated_content($id,$desc,$data,$type='',$item_id='') 
 {
-	global $mem_mod_email_on_update, $mem_mod_notify_email;	
+	global $mem_mod_email_on_update, $mem_mod_notify_email, $sitename;	
 
 	$encoded_data = mem_moderation_encode($data);
 
