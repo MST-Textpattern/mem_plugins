@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation_image';
 
-$plugin['version'] = '0.7.5';
+$plugin['version'] = '0.7.6';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Moderation plugin that allows user to submit images.';
@@ -635,7 +635,7 @@ function modimg_get_image_dimensions($thumbnail=false)
 function mem_image_save($step)
 {
 	ini_set('memory_limit', '32M');
-	global $txpcfg, $txpac, $prefs, $extensions, $path_to_site, $txp_user, $ign_user, $mem_modimg_info, $image_vars, $mem_form_values;
+	global $txpcfg, $txpac, $prefs, $extensions, $path_to_site, $txp_user, $ign_user, $mem_mod_info, $mem_modimg_info, $image_vars, $mem_form_values;
 
 	if (isset($ign_user)) $txp_user = $ign_user;
 
@@ -684,131 +684,133 @@ function mem_image_save($step)
 
 	$res = '';
 
-	if ($step=='image_update') 
+	if ($is_mem_form)
 	{
-		if (update_moderated_content($id, @$varray['note'], $varray)) 
-		{
-			$res = "Update link '$id'";
-		}
-		else
-		{
-			$res = "Failed to update link '$id'";
-		}
-	} 
-	else 
+		$file = $mem_form_values['thefile']['tmp_name'];
+		$name = $mem_form_values['thefile']['name'];
+	}
+	else
 	{
-		if ($is_mem_form)
-		{
-			$file	= $mem_form_values['thefile']['tmp_name'];
-			$name	= $mem_form_values['thefile']['name'];
-		}
-		else
-		{
-			$file = $_FILES['thefile']['tmp_name'];
-			$name = $_FILES['thefile']['name'];
-	
-			$file = get_uploaded_file($file);
-	
-		}
-		
-		$varray['user'] = $txp_user;
-		$email = safe_field('email','txp_users',"name='".doSlash($txp_user)."'");
+		$file = $_FILES['thefile']['tmp_name'];
+		$name = $_FILES['thefile']['name'];
 
-		if (!empty($file))
+		$file = get_uploaded_file($file);
+	}
+
+
+	$varray['user'] = $txp_user;
+	$email = safe_field('email', 'txp_users', "name='".doSlash($txp_user)."'");
+
+	if (!empty($file))
+	{	
+		$varray['tmpfilename'] = MEM_MOD_ARTICLE_TMP_FILE_PREFIX . basename($file) . $name;
+
+		$pending_file = $prefs['tempdir'] . DS . $varray['tmpfilename'];
+
+		list($w,$h,$extension) = getimagesize($file);
+
+		if ($extensions[$extension]) 
 		{
-	
-			$varray['tmpfilename'] = MEM_MOD_ARTICLE_TMP_FILE_PREFIX . basename($file) . $name;
-			$pending_file = $prefs['tempdir'] . DS . $varray['tmpfilename'];
-			list($w,$h,$extension) = getimagesize($file);
-	
-			if ($extensions[$extension]) 
+			list($width,$height) = modimg_get_image_dimensions();
+
+			if (class_exists('wet_thumb'))
 			{
-				list($width,$height) = modimg_get_image_dimensions();
-	
-				if (class_exists('wet_thumb'))
-				{
-					$sharpen = (@$prefs['mem_mod_img_sharpen'] == 1 || @$prefs['mem_mod_img_sharpen'] === true);
-					
-					$quality = @$prefs['mem_mod_img_quality'];
-					if ($quality === false || empty($quality) || !is_numeric($quality) || ($quality < 0 || $quality > 100))
-						$quality = 80;
-	
-					$t = new wet_thumb();
-					
-					// remove icon
-					$t->hint = false;
-					$t->crop = false;
-					$t->addgreytohint = false;
-					$t->quality = $quality;
-					$t->sharpen = false; //$sharpen;
-					
-					if ($w > $h)
-						$t->width = $width;
-					else
-						$t->height = $height;
-	
-					if ($t->write($file,$file.'.resized'))
-					{
-						unlink($file);
-						$file = $file.'.resized';
-						
-						$w = $t->width;
-						$h = $t->height;
-					}
-	
-					unset($t);
-				}
+				$sharpen = (@$prefs['mem_mod_img_sharpen'] == 1 || @$prefs['mem_mod_img_sharpen'] === true);
 				
-				if (shift_uploaded_file($file, $pending_file) != false)
-				{
-					$varray['w'] = $w;
-					$varray['h'] = $h;	
-					$varray['ext'] = $extensions[$extension];
-					$varray['name'] = substr($name,0,strrpos($name,'.')) . $varray['ext'];
-					$varray['tmpfile'] = $pending_file;
+				$quality = @$prefs['mem_mod_img_quality'];
+				if ($quality === false || empty($quality) || !is_numeric($quality) || ($quality < 0 || $quality > 100))
+					$quality = 80;
 
+				$t = new wet_thumb();
+				
+				// remove icon
+				$t->hint = false;
+				$t->crop = false;
+				$t->addgreytohint = false;
+				$t->quality = $quality;
+				$t->sharpen = false; //$sharpen;
+				
+				if ($w > $h)
+					$t->width = $width;
+				else
+					$t->height = $height;
+
+				if ($t->write($file,$file.'.resized'))
+				{
+					unlink($file);
+					$file = $file.'.resized';
 					
-					if (!isset($varray['note']))
-					{
-						$varray['note'] = $varray['name'];
-					}
-	
-					$res = submit_moderated_content('image',$email,$varray['note'],$varray);
-	
-					if ($res) {
-						$res = ''; //"Submitted Image '$res'";
-					} else {
-						$res = "Failed to submit image";
-					}
-				} else {
-					$res = "Failed to upload image";
+					$w = $t->width;
+					$h = $t->height;
 				}
-			} else {
-				$res = "'{$extension}' is an unapproved extension";
+
+				unset($t);
 			}
-		} // if !$file
-		else
-		{
-			if ($prefs['mem_mod_img_wrap_with_article'])
+			
+			if (shift_uploaded_file($file, $pending_file) != false)
 			{
-				if (empty($varray['note']) && !empty($varray['article_title']))
-				{
-					$varray['note'] = $varray['article_title'];
-				}
+				$varray['w'] = $w;
+				$varray['h'] = $h;	
+				$varray['ext'] = $extensions[$extension];
+				$varray['name'] = substr($name,0,strrpos($name,'.')) . $varray['ext'];
+				$varray['tmpfile'] = $pending_file;
+
 				
-				$res = submit_moderated_content('image',$email,$varray['note'],$varray);
-				
-				if ($res)
+				if (!isset($varray['note']))
 				{
-					$res = '';
+					$varray['note'] = $varray['name'];
 				}
-				else 
-				{
-					$res = 'Failed to submit image';
-				}
+
+			} else {
+				$res = "Failed to upload image";
+			}
+		} else {
+			$res = "'{$extension}' is an unapproved extension";
+		}
+	} // if !$file
+	else
+	{
+		if ($prefs['mem_mod_img_wrap_with_article'])
+		{
+			if (empty($varray['note']) && !empty($varray['article_title']))
+			{
+				$varray['note'] = $varray['article_title'];
 			}
 		}
 	}
+
+
+	if (empty($res))
+	{
+		if ($step=='image_update') 
+		{
+			if (update_moderated_content($id, @$varray['note'], $varray)) {
+				$res = "Update link '$id'";
+				
+				// remove previously uploaded file
+				$data = mem_moderation_decode($mem_mod_info['data']);
+				$tmpfile = @$data['tmpfile'];
+
+				if (file_exists($tmpfile) 
+					&& strncmp(basename($tmpfile), MEM_MOD_ARTICLE_TMP_FILE_PREFIX, strlen(MEM_MOD_ARTICLE_TMP_FILE_PREFIX)) == 0 )
+				{
+					@unlink($tmpfile);
+				}
+			} else {
+				$res = "Failed to update link '$id'";
+			}
+		} 
+		else 
+		{
+			$res = submit_moderated_content('image', $email, @$varray['note'], $varray);
+	
+			if ($res) {
+				$res = ''; //"Submitted Image '$res'";
+			} else {
+				$res = "Failed to submit image";
+			}
+		}
+	}		
 
 	
 	if (empty($res))
