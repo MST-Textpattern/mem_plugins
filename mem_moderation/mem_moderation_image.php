@@ -758,7 +758,14 @@ function mem_image_save($step)
 				
 				if (!isset($varray['note']))
 				{
-					$varray['note'] = $varray['name'];
+					if (!empty($varray['article_title']))
+					{
+						$varray['note'] = $varray['article_title'];
+					}
+					else
+					{
+						$varray['note'] = $varray['name'];
+					}
 				}
 
 			} else {
@@ -864,6 +871,44 @@ function mem_moderation_image_presenter_img()
 	}
 }
 
+function mem_moderation_image_prep_data($data)
+{
+	global $img_dir, $image_vars, $prefs, $comments_on_default;
+
+	$create_article = @$prefs['mem_mod_img_wrap_with_article'];
+	$wrap_default = @$prefs['mem_mod_img_wrap_default'];
+		
+	if (empty($data['article_annotate'])) $data['article_annotate'] = $comments_on_default;
+
+	if (empty($data['article_title'])) $data['article_title'] = @$data['alt'];
+	if (empty($data['article_body'])) $data['article_body'] = @$data['caption'];
+	if (empty($data['article_excerpt'])) $data['article_excerpt'] = '';
+	if (empty($data['article_user'])) $data['article_user'] = !empty($data['author']) ? $data['author'] : @$data['user'];
+	if (empty($data['article_wrap_enabled'])) $data['article_wrap_enabled'] = $wrap_default;
+
+	if (!empty($data['thefile']['tmp_name']))
+	{
+		if (empty($data['tmpfilename']))
+		{
+			$data['tmpfilename'] = MEM_MOD_ARTICLE_TMP_FILE_PREFIX . basename($data['thefile']['tmp_name']) . $data['thefile']['name'];
+		}
+		
+		if (empty($data['name']))
+		{
+			$data['name'] = $data['thefile']['name'];
+		}
+
+		$filename = (empty($data['tmpfile']) ? $tempdir . DS . $data['tmpfilename'] : $data['tmpfile']);
+
+		$dimensions = getimagesize($filename);
+		
+		$data['w'] = $dimensions[0];
+		$data['h'] = $dimensions[1];
+	}
+
+	return $data;	
+}
+
 function mem_moderation_image_presenter($type,$data) {
 	global $img_dir,$image_vars,$prefs;
 	
@@ -876,33 +921,7 @@ function mem_moderation_image_presenter($type,$data) {
 	{
 		extract(get_prefs());
 		
-		if (empty($data['article_annotate'])) $data['article_annotate'] = $comments_on_default;
-
-		if (empty($data['article_title'])) $data['article_title'] = @$data['alt'];
-		if (empty($data['article_body'])) $data['article_body'] = @$data['caption'];
-		if (empty($data['article_excerpt'])) $data['article_excerpt'] = '';
-		if (empty($data['article_user'])) $data['article_user'] = @$data['author'];
-		if (empty($data['article_wrap_enabled'])) $data['article_wrap_enabled'] = $wrap_default;
-
-		if (!empty($data['thefile']['tmp_name']))
-		{
-			if (empty($data['tmpfilename']))
-			{
-				$data['tmpfilename'] = MEM_MOD_ARTICLE_TMP_FILE_PREFIX . basename($data['thefile']['tmp_name']) . $data['thefile']['name'];
-			}
-			
-			if (empty($data['name']))
-			{
-				$data['name'] = $data['thefile']['name'];
-			}
-	
-			$filename = (empty($data['tmpfile']) ? $tempdir . DS . $data['tmpfilename'] : $data['tmpfile']);
-	
-			$dimensions = getimagesize($filename);
-			
-			$data['w'] = $dimensions[0];
-			$data['h'] = $dimensions[1];
-		}
+		$data = mem_moderation_image_prep_data($data);
 		
 		extract($data);
 
@@ -1017,6 +1036,8 @@ function mem_moderation_image_approver($type, $data)
 
 	if ($type=='image' && is_array($data))
 	{
+		$data = mem_moderation_image_prep_data($data);
+		
 		if (empty($data['tmpfilename']) && !empty($data['tmpfilename']))
 		{
 			$data['tmpfilename'] = MEM_MOD_ARTICLE_TMP_FILE_PREFIX . basename($data['thefile']['tmp_name']) . $data['thefile']['name'];
@@ -1033,6 +1054,11 @@ function mem_moderation_image_approver($type, $data)
 			}
 		}
 		
+		if (empty($data['author']) && !empty($data['user']))
+		{
+			$data['author'] = $data['user'];
+		}
+		
 		extract($data);
 
 		$rs_trans = safe_query("START TRANSACTION");
@@ -1047,8 +1073,8 @@ function mem_moderation_image_approver($type, $data)
 				.(!empty($w) ?"w			= $w," : '')
 				.(!empty($h) ?"h			= $h," : '')
 				."
-				alt         = '".doSlash($alt)."',
-				caption     = '".doSlash($caption)."',
+				alt         = '".doSlash(@$alt)."',
+				caption     = '".doSlash(@$caption)."',
 				date		= now(),
 				author		= '".doSlash($author)."'"
 			);
@@ -1174,12 +1200,17 @@ if (@txpinterface=='public')
 		global $mem_modarticle_info, $img_dir;
 
 		$thumbnail = !empty($atts['thumbnail']) && $atts['thumbnail'] == '0';
-			
-		if (!empty($mem_modarticle_info['tmpfilename']))
-			return '<img src="./temp-image-preview/?f=' . $mem_modarticle_info['tmpfilename']. '" />';
-		elseif (!empty($mem_modarticle_info['article_image']))
+		
+		$tmp_name = @$mem_modarticle_info['tmpfilename'];
+		$a_image = @$mem_modarticle_info['article_image'];
+		
+		if (!empty($tmp_name) && strcmp($tmp_name, MEM_MOD_ARTICLE_TMP_FILE_PREFIX) != 0)
 		{
-			$id = assert_int($mem_modarticle_info['article_image']);
+			return '<img src="./temp-image-preview/?f=' . $mem_modarticle_info['tmpfilename']. '" />';			
+		}
+		elseif (!empty($a_image))
+		{
+			$id = assert_int($a_image);
 			
 			$ext = safe_field('ext', 'txp_image', "id = $id");
 			
