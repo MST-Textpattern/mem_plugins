@@ -740,7 +740,7 @@ function mem_article_presenter($type,$data)
  * article-delete = delete article
  * Returns '' on success, otherwise error string.
  */
-function mem_article_approver($type,$data)
+function mem_article_approver($type, $data)
 {
 	global $txpcfg, $txp_user, $prefs;
 
@@ -749,6 +749,29 @@ function mem_article_approver($type,$data)
 		// cannot approve
 		return 'invalid data';
 	}
+	
+	$data = array_merge(array(
+		'annotateinvite'	=> '',
+		'image'	=> '',
+		'status'	=> 4,
+		'category1'	=> '',
+		'category2'	=> '',
+		'override_form'	=> '',
+		'keywords'	=> '',
+		'custom_1'	=> '',
+		'custom_2'	=> '',
+		'custom_3'	=> '',
+		'custom_4'	=> '',
+		'custom_5'	=> '',
+		'custom_6'	=> '',
+		'custom_7'	=> '',
+		'custom_8'	=> '',
+		'custom_9'	=> '',
+		'custom_10'	=> '',
+		'url_title'	=> '',
+		'textile_body'	=> '1',
+		'textile_excerpt'	=> '1',
+	), $data);
 
 	if ($type=='article') 
 	{
@@ -759,18 +782,12 @@ function mem_article_approver($type,$data)
 		$message='';
 		
 		// remap field values
-		$incoming['textile_body'] = USE_TEXTILE;
-		$incoming['textile_excerpt'] = USE_TEXTILE;
 		$incoming['Status'] = $incoming['status'];
 		$incoming['Title'] = $incoming['title'];
 		$incoming['Body'] = $incoming['body'];
 		$incoming['Excerpt'] = $incoming['excerpt'];
 		$incoming['publish_now'] = 1;
-		if (!isset($incoming['url_title']) )
-		{
-			$incoming['url_title'] = '';
-		}
-		
+
 		$incoming = textile_main_fields($incoming, $use_textile);
 
 		extract(doSlash($incoming));
@@ -801,6 +818,9 @@ function mem_article_approver($type,$data)
 			
 			if (empty($annotateinvite))
 				$annotateinvite = $comments_default_invite;
+				
+			if (empty($textile_excerpt)) $textile_excerpt = '0';
+			if (empty($textile_body)) $textile_body = '0';
 
 			$rs = safe_insert(
 			   "textpattern",
@@ -874,8 +894,6 @@ function mem_article_approver($type,$data)
 		$message='';
 
 		// remap field values
-		$incoming['textile_body'] = USE_TEXTILE;
-		$incoming['textile_excerpt'] = USE_TEXTILE;
 		$incoming['Status'] = $incoming['status'];
 		$incoming['Title'] = $incoming['title'];
 		$incoming['Body'] = $incoming['body'];
