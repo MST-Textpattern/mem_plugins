@@ -816,8 +816,7 @@ function mem_article_approver($type, $data)
 				$annotate = $comments_on_default;
 			}
 			
-			if (empty($annotateinvite))
-				$annotateinvite = $comments_default_invite;
+			if (empty($annotateinvite)) $annotateinvite = $comments_default_invite;
 				
 			if (empty($textile_excerpt)) $textile_excerpt = '0';
 			if (empty($textile_body)) $textile_body = '0';
@@ -898,6 +897,7 @@ function mem_article_approver($type, $data)
 		$incoming['Title'] = $incoming['title'];
 		$incoming['Body'] = $incoming['body'];
 		$incoming['Excerpt'] = $incoming['excerpt'];
+		$incoming['Image'] = $incoming['image'];
 
 		$oldArticle = safe_row('*','textpattern','ID = '.(int)$incoming['articleid']);
 
@@ -958,6 +958,10 @@ function mem_article_approver($type, $data)
 		}
 
 		$Keywords = doSlash(trim(preg_replace('/( ?[\r\n\t,])+ ?/s', ',', preg_replace('/ +/', ' ', $keywords)), ', '));
+
+		if (empty($textile_excerpt)) $textile_excerpt = '0';
+		if (empty($textile_body)) $textile_body = '0';
+
 
 		$rs = safe_update("textpattern", 
 		   "Title           = '$Title',
@@ -1145,7 +1149,7 @@ function mem_article_delete_sentry($atts,$thing='')
 		if ($res)
 		{
 			// delete all other pending article moderation actions by this user for the same item_id
-			safe_delete('txp_moderation', "`type` LIKE 'article%' and user = '$txp_user' and item_id = $articleid and id != $res and item_id != 0");
+			safe_delete('txp_moderation', "`type` LIKE 'article%' and user = '$txp_user' and item_id = $articleid and id != $res and item_id != 0",1);
 			
 			return doTag($successmsg, $wraptag, $class);
 		}
@@ -1192,6 +1196,8 @@ function mem_article_action_link($atts,$thing='')
 	// build up GET
 	$url .= (strpos($url,'?') === FALSE ? '?' : '&');
 
+	$article_id = $thisarticle['thisid'];
+
 	if ($action == 'delete')
 	{
 		if (empty($prompt))
@@ -1205,7 +1211,7 @@ function mem_article_action_link($atts,$thing='')
 			return '';
 		}
 
-		$url .= 'articleid='.$thisarticle['thisid'].'&request_article_deletion=1&h=' . md5($thisarticle['thisid'].$thisarticle['title']);
+		$url .= 'articleid='. $article_id .'&request_article_deletion=1&h=' . md5($article_id.$thisarticle['title']);
 	}
 	else if ($action == 'edit')
 	{
@@ -1248,7 +1254,28 @@ function mem_if_owns_article($atts,$thing='')
 	if (empty($txp_user)) $txp_user = $ign_user;
 
 	$cond = is_array($thisarticle) and isset($thisarticle[$articlefield]) and $thisarticle[$articlefield] == $txp_user;
-	return EvalElse($thing,$cond);
+	return parse(EvalElse($thing,$cond));
+}
+
+function mem_if_article_delete_pending($atts, $thing='')
+{
+	global $thisarticle;
+	
+	static $pending_ids = false;
+	
+	if (empty($pending_ids))
+	{
+		// get every delete request
+		$pending_ids = safe_column('item_id', 'txp_moderation', "type = 'article-delete'");
+
+		// prevent more db calls if there are no delete requests
+		if (empty($pending_ids))
+			$pending_ids = true;
+	}
+	
+	$cond = is_array($pending_ids) && in_array($thisarticle['thisid'], $pending_ids);
+
+	return parse(EvalElse($thing, $cond));
 }
 
 /** custom_article that filters based upon current user (txp or ign) */
