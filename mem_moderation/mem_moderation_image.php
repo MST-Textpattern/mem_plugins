@@ -1076,7 +1076,7 @@ function mem_moderation_image_approver($type, $data)
 	$is_edit = $type=='image-edit';
 
 	// get the article_image record and number of articles referencing it
-	$old_image_id = safe_field('Image', 'textpattern', "ID = " . assert_int($data['articleid']));
+	$old_image_id = !empty($data['articleid']) ? safe_field('Image', 'textpattern', "ID = " . doSlash($data['articleid'])) : false;
 	if ($is_edit && $old_image_id)
 	{
 		$old_image = safe_row('*', 'txp_image', "id = {$old_image_id}");
