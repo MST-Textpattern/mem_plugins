@@ -346,7 +346,7 @@ if (!is_array($mem_form_lang))
 	$mem_form_lang = array(
 		'error_file_extension'	=> 'File upload failed for field {label}.',
 		'error_file_failed'	=> 'Failed to upload file for field {label}.',
-		'error_file_size'	=> 'Failed to upload File for field {label}. File is to large.',
+		'error_file_size'	=> 'Failed to upload File for field {label}. File is too large.',
 		'field_missing'	=> 'The field {label} is required.',
 		'form_expired'	=>	'The form has expired.',
 		'form_misconfigured'	=> 'The mem_form is misconfigured. You must specify the "form" attribute.',
