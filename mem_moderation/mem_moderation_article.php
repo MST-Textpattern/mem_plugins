@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation_article';
 
-$plugin['version'] = '0.7.5';
+$plugin['version'] = '0.7.6';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Moderation plugin that allows articles to be submitted to the moderation queue.';
@@ -817,9 +817,17 @@ function mem_article_approver($type, $data)
 			}
 			
 			if (empty($annotateinvite)) $annotateinvite = $comments_default_invite;
-				
-			if (empty($textile_excerpt)) $textile_excerpt = '0';
-			if (empty($textile_body)) $textile_body = '0';
+			
+			$use_textile = $prefs['use_textile'];
+			
+			if (empty($textile_excerpt)) 
+			{
+				$textile_excerpt = !empty($use_textile) ? $use_textile : '0';
+			}
+			if (empty($textile_body))
+			{
+				$textile_body = !empty($use_textile) ? $use_textile : '0';
+			}
 
 			$rs = safe_insert(
 			   "textpattern",
@@ -959,8 +967,16 @@ function mem_article_approver($type, $data)
 
 		$Keywords = doSlash(trim(preg_replace('/( ?[\r\n\t,])+ ?/s', ',', preg_replace('/ +/', ' ', $keywords)), ', '));
 
-		if (empty($textile_excerpt)) $textile_excerpt = '0';
-		if (empty($textile_body)) $textile_body = '0';
+		$use_textile = $prefs['use_textile'];
+		
+		if (empty($textile_excerpt)) 
+		{
+			$textile_excerpt = !empty($use_textile) ? $use_textile : '0';
+		}
+		if (empty($textile_body))
+		{
+			$textile_body = !empty($use_textile) ? $use_textile : '0';
+		}
 
 
 		$rs = safe_update("textpattern", 
@@ -1149,7 +1165,7 @@ function mem_article_delete_sentry($atts,$thing='')
 		if ($res)
 		{
 			// delete all other pending article moderation actions by this user for the same item_id
-			safe_delete('txp_moderation', "`type` LIKE 'article%' and user = '$txp_user' and item_id = $articleid and id != $res and item_id != 0",1);
+			safe_delete('txp_moderation', "`type` LIKE 'article%' and user = '$txp_user' and item_id = $articleid and id != $res and item_id != 0");
 			
 			return doTag($successmsg, $wraptag, $class);
 		}

@@ -986,7 +986,7 @@ function mem_moderation_image_presenter($type,$data) {
 
 		$section_select = ($rs) ? selectInput("article_section", $rs, @$article_section) : '';
 
-		$out .= '<h3><a href="#"'.gTxt('article').'</h3>';
+		$out .= '<h3>'.gTxt('article').'</h3>';
 
 		$out .= '<table cellpadding="3" cellspacing="0" border="0" id="edit2" align="center" '.
 				(!($create_article && $article_wrap_enabled) ? 'style="display:none;visibility:hidden;"':'').'>' .
