@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 // $Rev$ $LastChangedDate$
-$plugin['version'] = '0.7';
+$plugin['version'] = '0.8';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -292,6 +292,19 @@ p(tag-summary). This will get or set a default value for a form.
 * %(atts-name)key% %(atts-type%)string% The name of the input field.
 * %(atts-name optional)val% %(atts-type)string% If specified, this will be specified as the default value for the input field named "key".
 
+h3(tag). mem_form_store
+
+p(tag-summary). This will store the name, label and value for a field in to the appropriate global variables.
+
+*(atts) %(atts-name)name% %(atts-type)string% The name of the field.
+* %(atts-name)label% %(atts-type%)string% The label of the field.
+* %(atts-name)value% %(atts-type)mixed% The value of the field.
+
+h3(tag). mem_form_remove
+
+p(tag-summary). This will remove the information associated with a field that has been stored.
+
+*(atts) %(atts-name)name% %(atts-type)string% The name of the field.
 
 h2(section). Global Variables
 
@@ -325,7 +338,11 @@ p(event-summary). Allows a plugin to test a submission as spam. The function get
 
 h3(event). mem_form.store_value
 
-p(event-summary). On submit, this event is called for each field that passed the builtin checks and was just stored in to the global variables. The callback step is the field name. Warning: This event is called even if the overall form submit has failed.
+p(event-summary). On submit, this event is called for each field that passed the builtin checks and was just stored in to the global variables. The callback step is the field name. This callback can be used for custom field validation. If the value is invalid, return FALSE. Warning: This event is called for each field even if a previously checked field has failed.
+
+h3(event). mem_form.validate
+
+p(event-summary). This event is called on form submit, after the individual fields are parsed and validated. This event is not called if there are any errors after the fields are validated. Any multi-field or form specific validation should happen here. Use mem_form_error() to set any validation error messages to prevent a successful post.
 
 # --- END PLUGIN HELP ---
 <?php
@@ -492,6 +509,12 @@ function mem_form($atts, $thing='')
 	$form = ($form) ? fetch_form($form) : $thing;
 	$form = parse($form);
 	
+	if ($mem_form_submit && empty($mem_form_error))
+	{
+		// let plugins validate after individual fields are validated
+		callback_event('mem_form.validate');
+	}
+	
 	if (!$mem_form_submit) {
 	  # don't show errors or send mail
 	}
@@ -654,37 +677,37 @@ function mem_form_text($atts)
 		if (strlen($value) == 0 && $required)
 		{
 			$mem_form_error[] = mem_form_gTxt('field_missing', array('{label}'=>$hlabel));
-			$isError = "errorElement";
+			$isError = true;
 		}
 		elseif (!empty($format) && !preg_match($format, $value))
 		{
 			//echo "format=$format<br />value=$value<br />";
 			$mem_form_error[] = mem_form_gTxt('invalid_format', array('{label}'=>$hlabel, '{example}'=> htmlspecialchars($example)));
-			$isError = "errorElement";
+			$isError = true;
 		}
 		elseif (strlen($value))
 		{
 			if (!$utf8len)
 			{
 				$mem_form_error[] = mem_form_gTxt('invalid_utf8', array('{label}'=>$hlabel));
-				$isError = "errorElement";
+				$isError = true;
 			}
 
 			elseif ($min and $utf8len < $min)
 			{
 				$mem_form_error[] = mem_form_gTxt('min_warning', array('{label}'=>$hlabel, '{min}'=>$min));
-				$isError = "errorElement";
+				$isError = true;
 			}
 
 			elseif ($max and $utf8len > $max)
 			{
 				$mem_form_error[] = mem_form_gTxt('max_warning', array('{label}'=>$hlabel, '{max}'=>$max));
-				$isError = "errorElement";
+				$isError = true;
 			}
 
 			else
 			{
-				mem_form_store($name, $label, $value);
+				$isError = false === mem_form_store($name, $label, $value);
 			}
 		}
 	}
@@ -699,6 +722,8 @@ function mem_form_text($atts)
 
 	$size = ($size) ? ' size="'.$size.'"' : '';
 	$maxlength = ($max) ? ' maxlength="'.$max.'"' : '';
+
+	$isError = $isError ? "errorElement" : '';
 
 	$memRequired = $required ? 'memRequired' : '';
 	$class = htmlspecialchars($class);
@@ -811,19 +836,25 @@ function mem_form_file($atts)
 					break;
 			}
 
-			if ($err)
-			{
-				$isError = 'errorElement';
-			}
-			else 
+			if (!$err)
 			{
 				// store as a txp tmp file to be used later
 				$fname = get_uploaded_file($fname);
-				mem_form_store($name, $label, array('tmp_name'=>$fname, 'name' => $frealname, 'type' => $ftype));
-				$out .= "<input type='hidden' name='file_".$name."' value='".htmlspecialchars($fname)."' />"
-						. "<input type='hidden' name='file_info_".$name."_name' value='".htmlspecialchars($_FILES[$name]['name'])."' />"
-						. "<input type='hidden' name='file_info_".$name."_type' value='".htmlspecialchars($_FILES[$name]['type'])."' />";
+				$err = false === mem_form_store($name, $label, array('tmp_name'=>$fname, 'name' => $frealname, 'type' => $ftype));
+				if ($err)
+				{
+					// clean up file
+					@unlink($fname);
+				}
+				else
+				{
+					$out .= "<input type='hidden' name='file_".$name."' value='".htmlspecialchars($fname)."' />"
+							. "<input type='hidden' name='file_info_".$name."_name' value='".htmlspecialchars($_FILES[$name]['name'])."' />"
+							. "<input type='hidden' name='file_info_".$name."_type' value='".htmlspecialchars($_FILES[$name]['type'])."' />";
+				}
 			}
+			
+			$isError = $err ? 'errorElement' : '';
 		}
 	}
 	else
@@ -902,31 +933,31 @@ function mem_form_textarea($atts, $thing='')
 			if (!$utf8len)
 			{
 				$mem_form_error[] = mem_form_gTxt('invalid_utf8', array('{label}'=>$hlabel));
-				$isError = "errorElement";
+				$isError = true;
 			}
 
 			elseif ($min and $utf8len < $min)
 			{
 				$mem_form_error[] = mem_form_gTxt('min_warning', array('{label}'=>$hlabel, '{min}'=>$min));
-				$isError = "errorElement";
+				$isError = true;
 			}
 
 			elseif ($max and $utf8len > $max)
 			{
 				$mem_form_error[] = mem_form_gTxt('max_warning', array('{label}'=>$hlabel, '{max}'=>$max));
-				$isError = "errorElement";
+				$isError = true;
 			}
 
 			else
 			{
-				mem_form_store($name, $label, $value);
+				$isError = false === mem_form_store($name, $label, $value);
 			}
 		}
 
 		elseif ($required)
 		{
 			$mem_form_error[] = mem_form_gTxt('field_missing', array('{label}'=>$hlabel));
-			$isError = "errorElement";
+			$isError = true;
 		}
 	}
 
@@ -940,6 +971,7 @@ function mem_form_textarea($atts, $thing='')
 			$value = parse($thing);
 	}
 
+	$isError = $isError ? 'errorElement' : '';
 	$memRequired = $required ? 'memRequired' : '';
 	$class = htmlspecialchars($class);
 	
@@ -980,7 +1012,7 @@ function mem_form_email($atts)
 			if (!is_valid_email($email))
 			{
 				$mem_form_error[] = mem_form_gTxt('invalid_email', array('{email}'=>htmlspecialchars($email)));
-				$isError = "errorElement";
+				$isError = true;
 			}	
 			else
 			{
@@ -990,7 +1022,7 @@ function mem_form_email($atts)
 				if (is_callable('checkdnsrr') and checkdnsrr('textpattern.com.','A') and !checkdnsrr($domain.'.','MX') and !checkdnsrr($domain.'.','A'))
 				{
 					$mem_form_error[] = mem_form_gTxt('invalid_host', array('{domain}'=>htmlspecialchars($domain)));
-					$isError = "errorElement";
+					$isError = true;
 				}
 				else
 				{
@@ -1181,12 +1213,12 @@ function mem_form_select($atts)
 
 				if ($is_valid)
 				{
-					mem_form_store($name, $label, $value);
+					$isError = false === mem_form_store($name, $label, $value);
 				}
 				else
 				{
 					$mem_form_error[] = mem_form_gTxt('invalid_value', array('{label}'=> htmlspecialchars($label), '{value}'=> htmlspecialchars($invalid_value)));
-					$isError = "errorElement";
+					$isError = true;
 				}			
 			}
 			else
@@ -1196,14 +1228,14 @@ function mem_form_select($atts)
 											'{count}'=> $select_limit,
 											'{plural}'=> ($select_limit==1 ? mem_form_gTxt('item') : mem_form_gTxt('items'))
 										));
-				$isError = "errorElement";
+				$isError = true;
 			}
 		}
 
 		elseif ($required)
 		{
 			$mem_form_error[] = mem_form_gTxt('field_missing', array('{label}'=> htmlspecialchars($label)));
-			$isError = "errorElement";
+			$isError = true;
 		}
 	}
 	else if (isset($mem_form_default[$name]))
@@ -1223,6 +1255,7 @@ function mem_form_select($atts)
 				(strlen($item) ? htmlspecialchars($item) : ' ').'</option>';
 	}
 
+	$isError = $isError ? 'errorElement' : '';
 	$memRequired = $required ? 'memRequired' : '';
 	$class = htmlspecialchars($class);
 
@@ -1257,12 +1290,12 @@ function mem_form_checkbox($atts)
 		if ($required and !$value)
 		{
 			$mem_form_error[] = mem_form_gTxt('field_missing', array('{label}'=> htmlspecialchars($label)));
-			$isError = "errorElement";
+			$isError = true;
 		}
 
 		else
 		{
-			mem_form_store($name, $label, $value ? gTxt('yes') : gTxt('no'));
+			$isError = false === mem_form_store($name, $label, $value ? gTxt('yes') : gTxt('no'));
 		}
 	}
 
@@ -1273,6 +1306,7 @@ function mem_form_checkbox($atts)
 			$value = $checked;
 	}
 
+	$isError = $isError ? 'errorElement' : '';
 	$memRequired = $required ? 'memRequired' : '';
 	$class = htmlspecialchars($class);
 
@@ -1353,11 +1387,11 @@ function mem_form_hidden($atts, $thing='')
 			if (!$utf8len)
 			{
 				$mem_form_error[] = mem_form_gTxt('invalid_utf8', $hlabel);
-				$isError = "errorElement";
+				$isError = true;
 			}
 			else
 			{
-				mem_form_store($name, $label, $value);
+				$isError = false === mem_form_store($name, $label, $value);
 			}
 		}
 	}
@@ -1369,6 +1403,7 @@ function mem_form_hidden($atts, $thing='')
 			$value = trim(parse($thing));
 	}
 	
+	$isError = $isError ? 'errorElement' : '';
 	$memRequired = $required ? 'memRequired' : '';
 	
 	if ($escape_value)
@@ -1391,6 +1426,7 @@ function mem_form_radio($atts)
 		'label'		=> mem_form_gTxt('option'),
 		'name'		=> '',
 		'class'		=> 'memRadio',
+		'isError'	=> ''
 	), $atts));
 
 	static $cur_name = '';
@@ -1417,7 +1453,7 @@ function mem_form_radio($atts)
 
 		if ($is_checked or $checked and !isset($mem_form_values[$name]))
 		{
-			mem_form_store($name, $group, $label);
+			$isError = false === mem_form_store($name, $group, $label);
 		}
 	}
 
@@ -1430,8 +1466,10 @@ function mem_form_radio($atts)
 	}
 
 	$class = htmlspecialchars($class);
+	
+	$isError = $isError ? ' errorElement' : '';
 
-	return '<input value="'.$id.'" type="radio" id="'.$id.'" class="'.$class.' '.$name.'" name="'.$name.'"'.
+	return '<input value="'.$id.'" type="radio" id="'.$id.'" class="'.$class.' '.$name.$isError.'" name="'.$name.'"'.
 		( $is_checked ? ' checked="checked" />' : ' />').$break.
 		'<label for="'.$id.'" class="'.$class.' '.$name.'">'.htmlspecialchars($label).'</label>';
 }
@@ -1501,7 +1539,21 @@ function mem_form_store($name, $label, $value)
 	$mem_form_labels[$name] = $label;
 	$mem_form_values[$name] = $value;
 
-	callback_event('mem_form.store_value', $name, 0);
+	$is_valid = false !== callback_event('mem_form.store_value', $name);
+	
+	// invalid data, unstore it
+	if (!$is_valid)
+		mem_form_remove($name);
+
+	return $is_valid;
+}
+
+function mem_form_remove($name)
+{
+	global $mem_form, $mem_form_labels, $mem_form_values;
+
+	$label = $mem_form_labels[$name];
+	unset($mem_form_labels[$name], $mem_form[$label], $mem_form_values[$name]);
 }
 
 function mem_form_display_error()
