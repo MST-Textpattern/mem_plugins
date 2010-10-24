@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 // $Rev$ $LastChangedDate$
-$plugin['version'] = '0.8';
+$plugin['version'] = '0.8.1';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -461,6 +461,9 @@ function mem_form($atts, $thing='')
 	}
 	$out = '';
 
+	// init error structure
+	mem_form_error();
+
 	$mem_form_type = $type;
 	
 	$mem_form_default = array();
@@ -480,9 +483,9 @@ function mem_form($atts, $thing='')
 			if ($rs['used'])
 			{
 				unset($mem_form_error);
-				$mem_form_error[] = mem_form_gTxt('form_used');
+				mem_form_error(mem_form_gTxt('form_used'));
 				$renonce = true;
-
+				
 				$_POST['mem_form_submit'] = TRUE;
 				$_POST['mem_form_id'] = $mem_form_id;
 				$_POST['mem_form_nonce'] = $nonce;
@@ -490,7 +493,7 @@ function mem_form($atts, $thing='')
 		}
 		else
 		{
-			$mem_form_error[] = $form_expired_msg;
+			mem_form_error($form_expired_msg);
 			$renonce = true;
 		}
 	}
