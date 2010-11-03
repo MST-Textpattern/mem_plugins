@@ -251,6 +251,7 @@ if (!is_array($mem_self_lang))
 		'password_invalid'	=> 'Invalid password',
 		'password_sent_to'	=>	'Password sent to {email}',
 		'saved_user_profile'	=>	'Saved User Profile',
+		'saved_user_profile_failed'	=>	'Failed to Save User Profile',
 		'user_exists'		=>	'Username already exists. Please try another name',
 		'user_not_found'	=>	'A user account could not be found with the provided information.',
 		'your_login_info'	=>	'Your Login Info',
