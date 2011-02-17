@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 // $Rev$ $LastChangedDate$
-$plugin['version'] = '0.8.1';
+$plugin['version'] = '0.8.2';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -430,7 +430,7 @@ function mem_form_gTxt($what,$args = array())
 }
 
 
-function mem_form($atts, $thing='')
+function mem_form($atts, $thing='', $default=false)
 {
 	global $sitename, $prefs, $file_max_upload_size, $mem_form_error, $mem_form_submit,
 		$mem_form, $mem_form_labels, $mem_form_values, 
@@ -466,7 +466,7 @@ function mem_form($atts, $thing='')
 
 	$mem_form_type = $type;
 	
-	$mem_form_default = array();
+	$mem_form_default = is_array($default) ? $default : array();
 	callback_event('mem_form.defaults');
 	
 	unset($atts['show_error'], $atts['show_input']);
