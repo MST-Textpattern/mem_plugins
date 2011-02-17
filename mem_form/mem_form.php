@@ -1415,7 +1415,7 @@ function mem_form_hidden($atts, $thing='')
 	}
 	
 	return '<input type="hidden" class="'.$class.' '.$memRequired.$isError.' '.$name 
-			. '" name="'.$name.'" value="'.$value.'" />';
+			. '" name="'.$name.'" value="'.$value.'" id="'.$name.'" />';
 }
 
 function mem_form_radio($atts)
