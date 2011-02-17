@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_self_register';
 
-$plugin['version'] = '0.9.3';
+$plugin['version'] = '0.9.4';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'User self registration. Read the help to install.';
@@ -890,18 +890,20 @@ function mem_self_password_reset_form($atts,$thing='')
 	
 	if (gps('mem_self_confirm'))
 	{
+		$user_table = mem_get_user_table_name()
+		
 		sleep(3);
 
 		$confirm = pack('H*', gps('mem_self_confirm'));
 		$name    = substr($confirm, 5);
-		$nonce   = safe_field('nonce', 'txp_users', "name = '".doSlash($name)."'");
+		$nonce   = safe_field('nonce', $user_table, "name = '".doSlash($name)."'");
 
 		if ($nonce and $confirm === pack('H*', substr(md5($nonce), 0, 10)).$name)
 		{
-			$email = safe_field('email', 'txp_users', "name = '".doSlash($name)."'");
+			$email = safe_field('email', $user_table, "name = '".doSlash($name)."'");
 			$new_pass = doSlash(generate_password(10));
 	
-			$rs = safe_update('txp_users', "pass = password(lower('$new_pass'))", "name = '".doSlash($name)."'");
+			$rs = safe_update($user_table, "pass = password(lower('$new_pass'))", "name = '".doSlash($name)."'");
 	
 			if ($rs)
 			{
@@ -1076,11 +1078,18 @@ function mem_self_password_form_submit()
 	$new_pass = $mem_form_values['password'];
 	$old_pass = $mem_form_values['old_password'];
 	
-	$user = isset($ign_user) ? $ign_user : $txp_user;
+	if (isset($ign_user))
+	{
+		$user = $ign_user;
+		$is_valid = $verify_old ? ign_validate($user, $old_pass) : true;
+	}
+	else
+	{
+		$user = $txp_user;
+		$is_valid = $verify_old ? txp_validate($user, $old_pass) : true;
+	}
 
 	$where = "name = '".doSlash($user)."'";
-	
-	$is_valid = $verify_old ? txp_validate($user,$old_pass) : true;
 
 	if (!$is_valid) {
 		return mem_form_error(mem_self_gTxt('password_invalid'));
@@ -1133,7 +1142,7 @@ function mem_self_password_form_submit()
 		$from = $mem_form_values['from'];
 		$reply = $mem_form_values['reply'];
 		$subject = $mem_form_values['subject'];
-
+		
 		if (mem_form_mail($from,$reply,$to,$subject,$msg))
 			return mem_self_gTxt('password_changed');
 		else
