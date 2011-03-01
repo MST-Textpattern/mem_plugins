@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_if_today';
 
-$plugin['version'] = '0.1';
+$plugin['version'] = '0.1.1';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Conditionally parses the enclosed tags if today is a specific day of the week, weekend, or weekday.';
@@ -61,10 +61,10 @@ function mem_if_today($atts,$thing)
 			// not supported
 			$tests = '';
 		} else if (!empty($is)) {
-			$tests = split(',',strtolower($is));
+			$tests = explode(',',strtolower($is));
 			$condition = true;
 		} else if (!empty($isnot)) {
-			$tests = split(',',strtolower($isnot));
+			$tests = explode(',',strtolower($isnot));
 			$condition = false;
 		}
 		

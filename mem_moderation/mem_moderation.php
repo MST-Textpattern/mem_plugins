@@ -8,7 +8,7 @@
 // Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation';
 
-$plugin['version'] = '0.7.4';
+$plugin['version'] = '0.7.5';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin adds a generic moderation queue to Textpattern. A plugin can extend the moderation queue to support any type of content.';
@@ -555,7 +555,7 @@ function mem_if_moderation($atts, $thing)
 	{
 		case 'type':
 			// check if any of the provided types match.
-			$types = array_flip(split($delimiter, $name));
+			$types = array_flip(explode($delimiter, $name));
 			
 			$cond = array_key_exists($mem_mod_info['type'], $types);
 			break;

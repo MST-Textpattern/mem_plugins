@@ -14,7 +14,7 @@ $plugin['name'] = 'mem_twitter';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.3.3';
+$plugin['version'] = '0.3.4';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin will post to twitter whenever an article is published.';
@@ -110,7 +110,7 @@ if (txpinterface == 'admin')
 		
 		if (!empty($article_id))
 		{
-			$exclude = split(',', $mem_twitter_exclude_sections);
+			$exclude = explode(',', $mem_twitter_exclude_sections);
 			
 			if (count($exclude) > 0)
 			{

@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_self_register';
 
-$plugin['version'] = '0.9.4';
+$plugin['version'] = '0.9.5';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'User self registration. Read the help to install.';
@@ -1322,7 +1322,7 @@ function mem_self_user_count($atts)
 	),$atts));
 
 	if (!empty($user_levels) || $user_levels=='0')
-		$user_levels = doSlash(split(',',$user_levels));
+		$user_levels = doSlash(explode(',',$user_levels));
 	else
 		$user_levels = array($mem_self['new_user_priv']);
 

@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 // $Rev$ $LastChangedDate$
-$plugin['version'] = '0.8.2';
+$plugin['version'] = '0.8.3';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -1065,7 +1065,7 @@ function mem_form_select_section($atts)
 	),$atts,false));
 	
 	if (!empty($exclude)) {
-		$exclusion = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$exclude)));
+		$exclusion = array_map('trim', explode($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$exclude)));
 		$exclusion = array_map('strtolower', $exclusion);
 
 		if (count($exclusion))
@@ -1108,7 +1108,7 @@ function mem_form_select_category($atts)
 	$rs = getTree($root, $type);
 
 	if (!empty($exclude)) {
-		$exclusion = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$exclude)));
+		$exclusion = array_map('trim', explode($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$exclude)));
 		$exclusion = array_map('strtolower', $exclusion);
 	}
 	else
@@ -1167,11 +1167,11 @@ function mem_form_select($atts)
 	
 	$select_limit = empty($select_limit) ? 1 : assert_int($select_limit);
 
-	$items = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$items)));
-	$values = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$values)));
+	$items = array_map('trim', explode($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$items)));
+	$values = array_map('trim', explode($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$values)));
 	if ($select_limit > 1)
 	{
-		$selected = array_map('trim', split($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$seelcted)));
+		$selected = array_map('trim', explode($delimiter, preg_replace('/[\r\n\t\s]+/', ' ',$seelcted)));
 	}
 	else
 	{

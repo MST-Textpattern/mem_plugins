@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_article_custom';
 
-$plugin['version'] = '0.2';
+$plugin['version'] = '0.2.1';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Functions the same as txp:article_custom, except it supports comma separated lists for the section and category attributes.';
@@ -90,7 +90,7 @@ function mem_article_custom($atts)
 	
 	
 	if ($keywords) {
-		$keys = split(',',$keywords);
+		$keys = explode(',',$keywords);
 		foreach ($keys as $key) {
 			$keyparts[] = " Keywords like '%".trim($key)."%'";
 		}
