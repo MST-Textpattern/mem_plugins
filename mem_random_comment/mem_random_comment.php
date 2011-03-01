@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_random_comment';
 
-$plugin['version'] = '0.2';
+$plugin['version'] = '0.2.1';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Display a random selection of comment(s) from a specified group of articles.';
@@ -95,14 +95,14 @@ function mem_random_comment($atts) {
 	if (!is_numeric($limit) || $limit < 1)
 		$limit = 1;
 
-	$ids = split(',',$id);
+	$ids = explode(',',$id);
 	
 	$sql =	"SELECT D.*, T.Section, T.url_title, T.ID AS articleid, T.Title_html, T.Title, T.Category1, T.Category2, unix_timestamp(T.Posted) as uPosted FROM `txp_discuss` D INNER JOIN `textpattern` T ON D.parentID=T.ID WHERE D.visible=".VISIBLE;
 
 	if (!empty($section)) {
 		$sections = array();
 		
-		foreach (split(',', $section ) AS $s) {
+		foreach (explode(',', $section ) AS $s) {
 			$sections[] = sprintf("'%s'", doSlash($s));
 		}
 

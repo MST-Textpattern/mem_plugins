@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_if';
 
-$plugin['version'] = '0.3';
+$plugin['version'] = '0.3.1';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Useful conditionals';
@@ -87,23 +87,23 @@ function mem_if($atts,$thing='')
 	if (!empty($isset))
 		$cond &= (isset($$isset));
 	if (!empty($author))
-		$cond &= in_array($GLOBALS['author'],split(',',$author));
+		$cond &= in_array($GLOBALS['author'],explode(',',$author));
 	if (!empty($category))
-		$cond &= in_array($GLOBALS['c'],split(',',$category));
+		$cond &= in_array($GLOBALS['c'],explode(',',$category));
 	if ($css=='1')
 		$cond &= $GLOBALS['css'];
 	if ($frontpage=='1')
 		$cond &= ($GLOBALS['s'] && $GLOBALS['s']=='default');
 	if (!empty($id))
-		$cond &= in_array($GLOBALS['id'],split(',',$id));
+		$cond &= in_array($GLOBALS['id'],explode(',',$id));
 	if (!empty($month))
-		$cond &= in_array($GLOBALS['month'],split(',',$month));
+		$cond &= in_array($GLOBALS['month'],explode(',',$month));
 	if (!empty($page))
-		$cond &= in_array($GLOBALS['p'],split(',',$page));
+		$cond &= in_array($GLOBALS['p'],explode(',',$page));
 	if (!empty($section))
-		$cond &= in_array($GLOBALS['s'],split(',',$section));
+		$cond &= in_array($GLOBALS['s'],explode(',',$section));
 	if (!empty($ip))
-		$cond &= in_array( $_SERVER['REMOTE_ADDR'], split(',', $ip) );
+		$cond &= in_array( $_SERVER['REMOTE_ADDR'], explode(',', $ip) );
 	
 	if ($negate=='1')
 		$cond = !$cond;
@@ -126,10 +126,10 @@ function mem_if_today($atts,$thing)
 			// not supported
 			$tests = '';
 		} else if (!empty($is)) {
-			$tests = split(',',strtolower($is));
+			$tests = explode(',',strtolower($is));
 			$condition = true;
 		} else if (!empty($isnot)) {
-			$tests = split(',',strtolower($isnot));
+			$tests = explode(',',strtolower($isnot));
 			$condition = false;
 		}
 		

@@ -14,7 +14,7 @@ $plugin['name'] = 'mem_simple_form';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.3';
+$plugin['version'] = '0.3.1';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Store a form to a table.';
@@ -222,7 +222,7 @@ function mem_simple_form_submitted()
 	$id_insert = @$mem_form_values['mem_simple_id_insert'];
 
 	$ignore_fields = @$mem_form_values['mem_simple_ignore_fields'];
-	$ignore_fields = empty($ignore_fields) ? array() : split(',', $ignore_fields);
+	$ignore_fields = empty($ignore_fields) ? array() : explode(',', $ignore_fields);
 	$ignore_fields_names = array_values($ignore_fields);
 	$ignore_fields_names[] = 'mem_form_submit';
 
@@ -240,7 +240,7 @@ function mem_simple_form_submitted()
 			}
 
 	    // split the type from name. int_number_value ==> int, number_value
-	    list($type, $name) = split('_', $k, 2);
+	    list($type, $name) = explode('_', $k, 2);
 
 			if ($type == 'int')
 				$format = "%s = %d";
