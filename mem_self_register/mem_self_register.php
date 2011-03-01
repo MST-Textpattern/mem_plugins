@@ -890,7 +890,7 @@ function mem_self_password_reset_form($atts,$thing='')
 	
 	if (gps('mem_self_confirm'))
 	{
-		$user_table = mem_get_user_table_name()
+		$user_table = mem_get_user_table_name();
 		
 		sleep(3);
 
