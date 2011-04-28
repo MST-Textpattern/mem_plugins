@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_self_register';
 
-$plugin['version'] = '0.9.5';
+$plugin['version'] = '0.9.6';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'User self registration. Read the help to install.';
@@ -221,6 +221,7 @@ p(tag-summary). Returns the number of users.
 // Author: Michael Manfre (http://manfre.net/)
 ////////////////////////////////////////////////////////////
 require_plugin('mem_form');
+include_once txpath.'/lib/PasswordHash.php';
 
 // MLP
 global $mem_self_lang;
@@ -646,12 +647,38 @@ function mem_self_register_form_submit()
 
 	extract($mem_self);
 
-	$pw = generate_password(10);
+	if (isset($mem_form_values['password']))
+	{
+		if (isset($mem_form_values['password2']) && $mem_form_values['password'] != $mem_form_values['password2'])
+		{
+			return mem_form_error(gTxt('passwords_do_not_match'));
+		}
+
+		$pw = $mem_form_values['password'];
+	}
+	else
+	{
+		$pw = generate_password(10);
+	}
 	
 	if (!$mem_profile) $mem_profile = array();
 
+	if (array_key_exists('first_name', $mem_form_values))
+	{
+		$mem_profile['first_name'] = $first_name = $mem_form_values['first_name'];
+		$mem_profile['last_name'] = $last_name = $mem_form_values['last_name'];
+		$mem_profile['RealName'] = $full_name = $first_name . ' ' . $last_name;
+	}
+	else
+	{
+		$mem_profile['RealName'] = $name = $mem_form_values['RealName'];
+		$name_parts = explode(' ', $name, 2);
+		$mem_profile['first_name'] = @$name_parts[0];
+		$mem_profile['last_name'] = @$name_parts[1];
+	}
+
 	$mem_profile['nonce'] = $nonce = md5( uniqid( rand(), true ) );
-	$mem_profile['RealName'] = $name = $mem_form_values['RealName'];
+	
 	$mem_profile['email'] = $email = $mem_form_values['email'];
 	$mem_profile['name'] = $username = $mem_form_values['name'];
 	$mem_profile['privs'] = $new_user_priv;
@@ -668,10 +695,12 @@ function mem_self_register_form_submit()
 		if (isset($mem_form_values[$c_name]))
 			$mem_profile[$c_name] = $mem_form_values[$c_name];
 	}
-	
-	$rs = false;
 
 	$xtra = mem_get_extra_user_columns_insert_string();
+
+	callback_event('mem_self_register.new_user', 'pre-created', 0, $mem_profile);
+
+	$phpass = new PasswordHash(PASSWORD_COMPLEXITY, PASSWORD_PORTABILITY);
 
 	$rs = safe_insert(
 		mem_get_user_table_name(),
@@ -679,13 +708,15 @@ function mem_self_register_form_submit()
 		 name     = '".doSlash($username)."',
 		 email    = '".doSlash($email)."',
 		 RealName = '".doSlash($name)."',
-		 pass     =  password(lower('".doSlash($pw)."')),
+		 pass     =  '" . doSlash($phpass->HashPassword($pw)) . "',
 		 nonce    = '".doSlash($nonce)."'" . $xtra
 	);
 
 	if ($rs) {
 		$mem_profile['user_id'] = $rs;
 		$mem_profile['last_access'] = 0;
+
+		callback_event('mem_self_register.new_user', 'created', 0, $mem_profile);
 
 		$message = @fetch_form($mem_form_values['email_form']);
 
@@ -768,7 +799,9 @@ function mem_get_user_table_name() {
 				$table_name = $ign_user_db;
 		}
 	}
-	return $table_name;
+	
+	$new_name = callback_event('mem_self_register.get_user_table', '', 0, $table_name);
+	return empty($new_name) ? $table_name : $new_name;
 }
 
 /** SQL string builder for non-standard fields */
