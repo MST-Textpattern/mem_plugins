@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation_image';
 
-$plugin['version'] = '0.7.6';
+$plugin['version'] = '0.7.7';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Moderation plugin that allows user to submit images.';
@@ -827,9 +827,6 @@ function mem_image_save($step)
 					&& $varray['tmpfile'] != $tmpfile
 					&& strncmp(basename($tmpfile), MEM_MOD_ARTICLE_TMP_FILE_PREFIX, strlen(MEM_MOD_ARTICLE_TMP_FILE_PREFIX)) == 0 )
 				{
-echo "about to unlink $tmpfile";
-dmp($varray);
-exit();
 					@unlink($tmpfile);
 				}
 			} else {
@@ -1256,9 +1253,6 @@ function mem_moderation_image_rejecter($type, $data)
 		
 		if (@file_exists($tmpfile) and strncmp($tmpfile, $prefix, $len) == 0)
 		{
-echo "rejecter about to unlink $tmpfile";
-dmp($data);
-exit();
 			// remove the rejected image file
 			unlink($tmpfile);
 		}
