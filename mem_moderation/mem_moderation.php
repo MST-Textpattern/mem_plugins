@@ -8,7 +8,7 @@
 // Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation';
 
-$plugin['version'] = '0.7.5';
+$plugin['version'] = '0.7.6';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'This plugin adds a generic moderation queue to Textpattern. A plugin can extend the moderation queue to support any type of content.';
@@ -563,7 +563,7 @@ function mem_if_moderation($atts, $thing)
 			$g = gps($name);
 			
 			// true if matches value or if set when value is empty
-			$cond = (empty($value) && !empty($g)) or (!empty($value) && strcasecmp($g, $value) == 0);
+			$cond = ((empty($value) && !empty($g)) or (!empty($value) && strcasecmp($g, $value) == 0));
 			break;
 		case 'data':
 			$data = mem_moderation_decode($mem_mod_info['data']);
