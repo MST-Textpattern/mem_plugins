@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 // $Rev$ $LastChangedDate$
-$plugin['version'] = '0.8.3';
+$plugin['version'] = '0.8.4';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -140,6 +140,7 @@ p(tag-summary). This will output an HTML radio button.
 * %(atts-name)name% %(atts-type)string% Input field name.
 * %(atts-name)class% %(atts-type)string% CSS class name.
 * %(atts-name)group% %(atts-type)string% A name that identifies a group of radio buttons.
+* %(atts-name)value% %(atts-type)string% The value of the radio button. If not set, a unique value is generated.
 * %(atts-name)checked% %(atts-type)int% Is this box checked. Default "0".
 
 h3(tag#mem_form_secret). mem_form_secret
@@ -682,7 +683,7 @@ function mem_form_text($atts)
 			$mem_form_error[] = mem_form_gTxt('field_missing', array('{label}'=>$hlabel));
 			$isError = true;
 		}
-		elseif (!empty($format) && !preg_match($format, $value))
+		elseif ($required && !empty($format) && !preg_match($format, $value))
 		{
 			//echo "format=$format<br />value=$value<br />";
 			$mem_form_error[] = mem_form_gTxt('invalid_format', array('{label}'=>$hlabel, '{example}'=> htmlspecialchars($example)));
@@ -1429,7 +1430,8 @@ function mem_form_radio($atts)
 		'label'		=> mem_form_gTxt('option'),
 		'name'		=> '',
 		'class'		=> 'memRadio',
-		'isError'	=> ''
+		'isError'	=> '',
+		'value'		=> false
 	), $atts));
 
 	static $cur_name = '';
@@ -1450,20 +1452,22 @@ function mem_form_radio($atts)
 	$id   = 'q'.md5($name.'=>'.$label);
 	$name = mem_form_label2name($name);
 
+	$value = $value === false ? $id : $value;
+
 	if ($mem_form_submit)
 	{
-		$is_checked = (ps($name) == $id);
+		$is_checked = (ps($name) == $value);
 
 		if ($is_checked or $checked and !isset($mem_form_values[$name]))
 		{
-			$isError = false === mem_form_store($name, $group, $label);
+			$isError = false === mem_form_store($name, $group, $value);
 		}
 	}
 
 	else
 	{
 		if (isset($mem_form_default[$name]))
-			$is_checked = $mem_form_default[$name];
+			$is_checked = $mem_form_default[$name] == $value;
 		else
 			$is_checked = $checked;
 	}
@@ -1472,7 +1476,7 @@ function mem_form_radio($atts)
 	
 	$isError = $isError ? ' errorElement' : '';
 
-	return '<input value="'.$id.'" type="radio" id="'.$id.'" class="'.$class.' '.$name.$isError.'" name="'.$name.'"'.
+	return '<input value="'.$value.'" type="radio" id="'.$id.'" class="'.$class.' '.$name.$isError.'" name="'.$name.'"'.
 		( $is_checked ? ' checked="checked" />' : ' />').$break.
 		'<label for="'.$id.'" class="'.$class.' '.$name.'">'.htmlspecialchars($label).'</label>';
 }
