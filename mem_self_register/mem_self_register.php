@@ -1223,6 +1223,8 @@ function mem_self_user_edit_submit()
 
 	if (isset($ign_user)) $txp_user = $ign_user;
 	
+	callback_event('mem_self_register.edit_profile', 'submit', 0, $mem_profile);
+	
 	$name = isset($mem_form_values['name']) ? trim($mem_form_values['name']) : '';
 
 	$xtra = mem_get_extra_user_columns_insert_string();
@@ -1250,8 +1252,9 @@ function mem_self_user_edit_submit()
 	$rs = safe_update( mem_get_user_table_name(),
 				$sql . $xtra,
 				"name = '{$txp_user}'");
-	
+
 	if ($rs) {
+		callback_event('mem_self_register.edit_profile', 'submit', 0, $mem_profile);
 		return mem_self_gTxt('saved_user_profile');
 	}
 	else {
