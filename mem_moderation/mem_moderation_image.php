@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_moderation_image';
 
-$plugin['version'] = '0.7.7';
+$plugin['version'] = '0.7.8';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Moderation plugin that allows user to submit images.';
@@ -1067,7 +1067,7 @@ function mem_moderation_image_presenter($type,$data) {
 
 function mem_moderation_image_approver($type, $data)
 {
-	global $prefs;
+	global $prefs, $event;
 
 	$is_new = $type=='image';
 	$is_edit = $type=='image-edit';
@@ -1197,7 +1197,7 @@ function mem_moderation_image_approver($type, $data)
 			}
 		}
 
-		$article = safe_row('*', 'textpattern', "ID = '".$data['articleid']."'");
+		//$article = safe_row('*', 'textpattern', "ID = '".$data['articleid']."'");
 
 		// commit it all. thumbnail is not critical
 		safe_query("COMMIT");
@@ -1218,7 +1218,13 @@ function mem_moderation_image_approver($type, $data)
 					$t->height = $t_height;
 			}
 		
-			if (!$t->write()) {
+			$wrote = $t->write();
+			
+			// call post-upload plugins with new image's $id
+			callback_event('image_uploaded', $event, false, $id);
+
+		
+			if (!$wrote) {
 				return 'Failed to create thumbnail';
 			}
 		}
