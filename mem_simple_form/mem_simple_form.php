@@ -14,7 +14,7 @@ $plugin['name'] = 'mem_simple_form';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 
-$plugin['version'] = '0.3.1';
+$plugin['version'] = '0.3.2';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'Store a form to a table.';
@@ -90,6 +90,7 @@ p(tag-summary). Form Types:
 *(atts) %(atts-name)ignore_fields% %(atts-type)string% A comma separated string of field names (including prefixes) that will not be written to the table. These are handy for ToS checkboxes and CAPTCHAs.
 *(atts) %(atts-name)form% %(atts-type)string% Name of form that contains the mem_simple_form form tags.
 *(atts) %(atts-name)success_form% %(atts-type)string% Name of the form that will be shown after a successful post.
+*(atts) %(atts-name)failure_form% %(atts-type)string% Name of the form that will be shown after a failed post.
 
 h3(tag#mem_simple_if_ps). mem_simple_if_ps
 
@@ -182,6 +183,7 @@ function mem_simple_form($atts, $thing='')
         'ignore_fields'	=> false,
         'form'	=> '',
         'success_form'	=> false,
+        'failure_form'	=> false,
     ),$atts,0);
 
     if (empty($atts['table']))
@@ -192,7 +194,7 @@ function mem_simple_form($atts, $thing='')
 			unset($atts['form']);
 		}
 
-		foreach(array('table','id_field','id_insert','ignore_fields','success_form') as $a) {
+		foreach(array('table', 'id_field', 'id_insert', 'ignore_fields', 'success_form', 'failure_form') as $a) {
 			$thing .= '<txp:mem_form_secret name="mem_simple_'.$a.'" value="'.$atts[$a].'" />';
 			unset($atts[$a]);
 		}
@@ -327,7 +329,9 @@ function mem_simple_form_submitted()
    	        	$form = @fetch_form($form);
    	        	
    	        	if (!empty($form))
+   	        	{
    	        		return parse($form);
+   	        	}
    	        }
    	    }
    	    else
@@ -335,6 +339,17 @@ function mem_simple_form_submitted()
    	        // boo
    	        if ($production_status != 'live')
 	   	        trigger_error('Failed to store data to table. ' . mysql_error($rs));
+
+   	    	$form = @$mem_form_values['mem_simple_failure_form'];
+   	    	if (!empty($form))
+   	    	{
+   	    		$form = @fetch_form($form);
+   	    		
+   	    		if (!empty($form))
+   	    		{
+   	    			return parse($form);
+   	    		}
+   	    	}
    	        
    	        return mem_simple_gTxt('form_submit_failed');
    	    }
