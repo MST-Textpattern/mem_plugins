@@ -741,6 +741,7 @@ EOF;
 			$vals['password']		= $pw;
 			$vals['siteurl']		= hu;
 			$vals['username']		= $vals['name'];
+			$vals['RealName'] = empty($vals['RealName']) ? $mem_profile['RealName'] : $vals['RealName'];
 
 			foreach ($vals as $a=>$b) {
 				$message = str_replace('<txp:mem_'.$a.' />', $b, $message);
