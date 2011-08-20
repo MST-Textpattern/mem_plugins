@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_self_register';
 
-$plugin['version'] = '0.9.6';
+$plugin['version'] = '0.9.7';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'User self registration. Read the help to install.';
@@ -935,9 +935,11 @@ function mem_self_password_reset_form($atts,$thing='')
 		if ($nonce and $confirm === pack('H*', substr(md5($nonce), 0, 10)).$name)
 		{
 			$email = safe_field('email', $user_table, "name = '".doSlash($name)."'");
-			$new_pass = doSlash(generate_password(10));
+			
+			$phpass = new PasswordHash(PASSWORD_COMPLEXITY, PASSWORD_PORTABILITY);
+			$new_pass = doSlash($phpass->HashPassword(generate_password(10)));
 	
-			$rs = safe_update($user_table, "pass = password(lower('$new_pass'))", "name = '".doSlash($name)."'");
+			$rs = safe_update($user_table, "pass = '{$new_pass}', name = '".doSlash($name)."'");
 	
 			if ($rs)
 			{
@@ -1132,8 +1134,11 @@ function mem_self_password_form_submit()
 	if ($confirm and ($new_pass != $mem_form_values['password_confirm'])) {
 		return mem_form_error(mem_self_gTxt('password_mismatch'));
 	}
+	
+	$phpass = new PasswordHash(PASSWORD_COMPLEXITY, PASSWORD_PORTABILITY);
+	$new_pass = doSlash($phpass->HashPassword($new_pass))
 
-	$rs = safe_update( mem_get_user_table_name(), "pass = password(lower('$new_pass'))", $where);
+	$rs = safe_update( mem_get_user_table_name(), "pass = '{$new_pass}'", $where);
 	
 	if (!$rs) {
 		return mem_form_error(mem_self_gTxt('password_change_failed'));
