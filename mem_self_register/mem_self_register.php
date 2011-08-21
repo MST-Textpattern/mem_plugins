@@ -1137,7 +1137,7 @@ function mem_self_password_form_submit()
 	}
 	
 	$phpass = new PasswordHash(PASSWORD_COMPLEXITY, PASSWORD_PORTABILITY);
-	$new_pass = doSlash($phpass->HashPassword($new_pass))
+	$new_pass = doSlash($phpass->HashPassword($new_pass));
 
 	$rs = safe_update( mem_get_user_table_name(), "pass = '{$new_pass}'", $where);
 	
