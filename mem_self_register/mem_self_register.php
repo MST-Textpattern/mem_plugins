@@ -744,10 +744,10 @@ EOF;
 			$vals['RealName'] = empty($vals['RealName']) ? $mem_profile['RealName'] : $vals['RealName'];
 
 			foreach ($vals as $a=>$b) {
-				$message = str_replace('<txp:mem_'.$a.' />', $b, $message);
-				$message = str_replace('{'.$a.'}', $b, $message);
-				$mem_form_thanks_form = str_replace('<txp:mem_'.$a.' />', $b, $mem_form_thanks_form);
-				$mem_form_thanks_form = str_replace('{'.$a.'}', $b, $mem_form_thanks_form);
+				$message = str_ireplace('<txp:mem_'.$a.' />', $b, $message);
+				$message = str_ireplace('{'.$a.'}', $b, $message);
+				$mem_form_thanks_form = str_ireplace('<txp:mem_'.$a.' />', $b, $mem_form_thanks_form);
+				$mem_form_thanks_form = str_ireplace('{'.$a.'}', $b, $mem_form_thanks_form);
 			}
 
 			$message = parse($message);
@@ -1039,11 +1039,12 @@ function mem_self_password_reset_form_submit()
 			//$vals['password']		= $pw;
 			$vals['confirm_url'] = $url;
 			$vals['siteurl']		= hu;
-			$vals['username']		= $vals['name'];
+			$vals['username']		= empty($vals['name']) ? $name : $vals['name'];
+			$vals['RealName']		= $RealName; 
 			
 			foreach ($vals as $a=>$b) {
-				$message = str_replace('{'.$a.'}', $b, $message);
-				$message = str_replace('<txp:mem_'.$a.' />',$b,$message);
+				$message = str_ireplace('{'.$a.'}', $b, $message);
+				$message = str_ireplace('<txp:mem_'.$a.' />',$b,$message);
 			}
 			
 			$msg = parse($message);
@@ -1162,10 +1163,11 @@ function mem_self_password_form_submit()
 			$vals['password']		= $mem_profile['new_pass'];
 			$vals['siteurl']		= hu;
 			$vals['username']		= $vals['name'];
+			$vals['RealName']		= empty($vals['RealName']) ? $mem_profile['RealName'] : $vals['RealName'];
 			
 			foreach ($vals as $a=>$b) {
-				$message = str_replace('{'.$a.'}', $b, $message);
-				$message = str_replace('<txp:mem_'.$a.' />',$b,$message);
+				$message = str_ireplace('{'.$a.'}', $b, $message);
+				$message = str_ireplace('<txp:mem_'.$a.' />',$b,$message);
 			}
 
 		}
