@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_self_register';
 
-$plugin['version'] = '0.9.7';
+$plugin['version'] = '0.9.8';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'User self registration. Read the help to install.';
@@ -51,6 +51,7 @@ h2(section tags). Tags
 * "self_register_email_message":#self_register_email_message
 * "self_register_status_message":#self_register_status_message
 * "if_self_registered":#if_self_registered
+* "mem_self_password_reset_form":#mem_self_password_reset_form
 * "mem_self_user_count":#mem_self_user_count
 
 h3(tag#mem_self_register_form). mem_self_register_form
@@ -935,11 +936,12 @@ function mem_self_password_reset_form($atts,$thing='')
 		if ($nonce and $confirm === pack('H*', substr(md5($nonce), 0, 10)).$name)
 		{
 			$email = safe_field('email', $user_table, "name = '".doSlash($name)."'");
+			$new_pass = generate_password(10);
 			
 			$phpass = new PasswordHash(PASSWORD_COMPLEXITY, PASSWORD_PORTABILITY);
-			$new_pass = doSlash($phpass->HashPassword(generate_password(10)));
+			$hashed_pass = doSlash($phpass->HashPassword($new_pass));
 	
-			$rs = safe_update($user_table, "pass = '{$new_pass}', name = '".doSlash($name)."'");
+			$rs = safe_update($user_table, "pass = '{$hashed_pass}'", "name = '" . doSlash($name) . "'");
 	
 			if ($rs)
 			{
