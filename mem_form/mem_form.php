@@ -79,6 +79,7 @@ p(tag-summary). This tag will create an HTML form and contains all of the proces
 * %(atts-name)redirect% %(atts-type)url% URL to redirect upon successful form submission. Overrides "thanks" and "thanks_form".
 * %(atts-name)redirect_form% %(atts-type)string% Name of a form that will be parsed as displayed to the user on a redirect. The string "_{uri}_" will be replaced with the redirect url.
 * %(atts-name)enctype% %(atts-type)string% HTML encoding type used when the form is submitted. @enctype="multipart/form-data"@ is required when using mem_form_file.
+* %(atts-name)default_break% %(atts-type)string% Separator between label tag and input tag to be used as the default for every mem_form compatible field contained in the form. Default is <br>
 
 
 h3(tag#mem_form_checkbox). mem_form_checkbox
@@ -457,7 +458,7 @@ function mem_form_gTxt($what,$args = array())
 function mem_form($atts, $thing='', $default=false)
 {
 	global $sitename, $prefs, $file_max_upload_size, $mem_form_error, $mem_form_submit,
-		$mem_form, $mem_form_labels, $mem_form_values, 
+		$mem_form, $mem_form_labels, $mem_form_values, $mem_form_default_break,
 		$mem_form_default, $mem_form_type, $mem_form_thanks_form,
 		$mem_glz_custom_fields_plugin;
 
@@ -476,6 +477,7 @@ function mem_form($atts, $thing='', $default=false)
 		'form_expired_msg' => mem_form_gTxt('form_expired'),
 		'show_error'	=> 1,
 		'show_input'	=> 1,
+		'default_break'	=> br,
 	), $atts));
 	
 	if (empty($type) or (empty($form) && empty($thing))) {
@@ -669,10 +671,10 @@ END;
 
 function mem_form_text($atts)
 {
-	global $mem_form_error, $mem_form_submit, $mem_form_default;
+	global $mem_form_error, $mem_form_submit, $mem_form_default, $mem_form_default_break;
 
 	extract(mem_form_lAtts(array(
-		'break'		=> br,
+		'break'		=> $mem_form_default_break,
 		'default'	=> '',
 		'isError'	=> '',
 		'label'		=> mem_form_gTxt('text'),
@@ -767,10 +769,10 @@ function mem_form_text($atts)
 
 function mem_form_file($atts)
 {
-	global $mem_form_submit, $mem_form_error, $mem_form_default, $file_max_upload_size, $tempdir;
+	global $mem_form_submit, $mem_form_error, $mem_form_default, $file_max_upload_size, $tempdir, $mem_form_default_break;
 	
 	extract(mem_form_lAtts(array(
-		'break'		=> br,
+		'break'		=> $mem_form_default_break,
 		'isError'	=> '',
 		'label'		=> mem_form_gTxt('file'),
 		'name'		=> '',
@@ -925,10 +927,10 @@ function mem_form_file($atts)
 
 function mem_form_textarea($atts, $thing='')
 {
-	global $mem_form_error, $mem_form_submit, $mem_form_default;
+	global $mem_form_error, $mem_form_submit, $mem_form_default, $mem_form_default_break;
 
 	extract(mem_form_lAtts(array(
-		'break'		=> br,
+		'break'		=> $mem_form_default_break,
 		'cols'		=> 58,
 		'default'	=> '',
 		'isError'	=> '',
@@ -1013,7 +1015,7 @@ function mem_form_textarea($atts, $thing='')
 
 function mem_form_email($atts)
 {
-	global $mem_form_error, $mem_form_submit, $mem_form_from, $mem_form_default;
+	global $mem_form_error, $mem_form_submit, $mem_form_from, $mem_form_default, $mem_form_default_break;
 
 	extract(mem_form_lAtts(array(
 		'default'	=> '',
@@ -1023,7 +1025,7 @@ function mem_form_email($atts)
 		'min'		=> 0,
 		'name'		=> '',
 		'required'	=> 1,
-		'break'		=> br,
+		'break'		=> $mem_form_default_break,
 		'size'		=> '',
 		'class'		=> 'memEmail',
 	), $atts));
@@ -1194,11 +1196,11 @@ function mem_form_select_range($atts)
 
 function mem_form_select($atts)
 {
-	global $mem_form_error, $mem_form_submit, $mem_form_default;
+	global $mem_form_error, $mem_form_submit, $mem_form_default, $mem_form_default_break;
 
 	extract(mem_form_lAtts(array(
 		'name'		=> '',
-		'break'		=> ' ',
+		'break'		=> $mem_form_default_break,
 		'delimiter'	=> ',',
 		'isError'	=> '',
 		'label'		=> mem_form_gTxt('option'),
@@ -1329,10 +1331,10 @@ function mem_form_select($atts)
 
 function mem_form_checkbox($atts)
 {
-	global $mem_form_error, $mem_form_submit, $mem_form_default;
+	global $mem_form_error, $mem_form_submit, $mem_form_default, $mem_form_default_break;
 
 	extract(mem_form_lAtts(array(
-		'break'		=> ' ',
+		'break'		=> $mem_form_default_break,
 		'checked'	=> 0,
 		'isError'	=> '',
 		'label'		=> mem_form_gTxt('checkbox'),
@@ -1477,10 +1479,10 @@ function mem_form_hidden($atts, $thing='')
 
 function mem_form_radio($atts)
 {
-	global $mem_form_error, $mem_form_submit, $mem_form_values, $mem_form_default;
+	global $mem_form_error, $mem_form_submit, $mem_form_values, $mem_form_default, $mem_form_default_break;
 
 	extract(mem_form_lAtts(array(
-		'break'		=> ' ',
+		'break'		=> $mem_form_default_break,
 		'checked'	=> 0,
 		'group'		=> '',
 		'label'		=> mem_form_gTxt('option'),
