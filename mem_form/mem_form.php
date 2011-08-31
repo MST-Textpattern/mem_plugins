@@ -1163,10 +1163,23 @@ function mem_form_select_category($atts)
 
 function mem_form_select_range($atts)
 {
+	global $mem_form_default_break;
+
 	$latts = mem_form_lAtts(array(
 		'start'		=> 0,
 		'stop'		=> false,
 		'step'		=> 1,
+		'name'		=> '',
+		'break'		=> $mem_form_default_break,
+		'delimiter'	=> ',',
+		'isError'	=> '',
+		'label'		=> mem_form_gTxt('option'),
+		'first'		=> FALSE,
+		'required'	=> 1,
+		'select_limit'	=> FALSE,
+		'as_csv'	=> FALSE,
+		'selected'	=> '',
+		'class'		=> 'memSelect',		
 	), $atts);
 
 	if ($stop === false)
@@ -1189,7 +1202,7 @@ function mem_form_select_range($atts)
 	}
 	
 	// intentional trample
-	$latts['items'] = $latts['values'] = $values;
+	$latts['items'] = $latts['values'] = implode($latts['delimiter'], $values);
 	
 	return mem_form_select($latts);
 }
