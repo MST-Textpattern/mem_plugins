@@ -14,7 +14,7 @@
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 1;
 // $Rev$ $LastChangedDate$
-$plugin['version'] = '0.8.4';
+$plugin['version'] = '0.8.5';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'A library plugin that provides support for html forms.';
@@ -58,6 +58,7 @@ h2(section tags). Tags
 * "mem_form_secret":#mem_form_secret
 * "mem_form_select":#mem_form_select
 * "mem_form_select_category":#mem_form_select_category
+* "mem_form_select_range":#mem_form_select_range
 * "mem_form_select_section":#mem_form_select_section
 * "mem_form_serverinfo":#mem_form_serverinfo
 * "mem_form_submit":#mem_form_submit
@@ -186,6 +187,28 @@ p(tag-summary). This will output an HTML select field populated with the specifi
 * %(atts-name)exclude% %(atts-type)string% List of item values that will not be included.
 * %(atts-name)sort% %(atts-type)string%  How will the list values be sorted.
 * %(atts-name)type% %(atts-type)string% Category type name. E.g. "article"
+
+h3(tag#mem_form_select_range) . mem_form_select_range
+
+p(tag-summary). This will output an HTML select field populated with a range of numbers.
+
+*(atts) %(atts-name)start% %(atts-type)int% The initial number to include. Default is 0.
+* %(atts-name)stop% %(atts-type)int% The largest/smallest number to include.
+* %(atts-name)step% %(atts-type)int% The increment between numbers in the range. Default is 1.
+* %(atts-name)label% %(atts-type)string% Friendly name for the input field. If set, this will output an HTML ==<label>== tag linked to the input field.
+* %(atts-name)name% %(atts-type)string% Input field name.
+* %(atts-name)break% %(atts-type)string% Separator between label tag and input tag.
+* %(atts-name)delimiter% %(atts-type)string% List separator. Default ","
+* %(atts-name)items% %(atts-type)string% Delimited list containing a select list display values.
+* %(atts-name)values% %(atts-type)string% Delimited list containing a select list item values.
+* %(atts-name)required% %(atts-type)int% Specifies if input is required.
+* %(atts-name)selected% %(atts-type)string% The value of the selected item.
+* %(atts-name)first% %(atts-type)string% Display value of the first item in the list. E.g. "Select a Section" or "" for a blank option.
+* %(atts-name)class% %(atts-type)string% CSS class name.
+* %(atts-name)exclude% %(atts-type)string% List of item values that will not be included.
+* %(atts-name)sort% %(atts-type)string%  How will the list values be sorted.
+* %(atts-name)type% %(atts-type)string% Category type name. E.g. "article"
+
 
 h3(tag#mem_form_section). mem_form_select_section
 
@@ -1134,6 +1157,39 @@ function mem_form_select_category($atts)
 	$atts['values'] = join($delimiter, $values);
 
 	return mem_form_select($atts);
+}
+
+function mem_form_select_range($atts)
+{
+	$latts = mem_form_lAtts(array(
+		'start'		=> 0,
+		'stop'		=> false,
+		'step'		=> 1,
+	), $atts);
+
+	if ($stop === false)
+	{
+		trigger_error(gTxt('missing_required_attribute', array('{name}' => 'stop')), E_USER_ERROR);
+	}
+
+	$step = empty($latts['step']) ? 1 : assert_int($latts['step']);
+	$start= assert_int($latts['start']);
+	$stop = assert_int($latts['stop']);
+	
+	// fixup start/stop based upon step direction
+	$start = $step > 0 ? min($start, $stop) : max($start, $stop);
+	$stop = $step > 0 ? max($start, $stop) : min($start, $stop);
+
+	$values = array();
+	for($i=$start; $i >= $start && $i < $stop; $i += $step)
+	{
+		array_push($values, $i);		
+	}
+	
+	// intentional trample
+	$latts['items'] = $latts['values'] = $values;
+	
+	return mem_form_select($latts);
 }
 
 function mem_form_select($atts)
