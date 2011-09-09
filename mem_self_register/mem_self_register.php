@@ -8,7 +8,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'mem_self_register';
 
-$plugin['version'] = '0.9.8';
+$plugin['version'] = '0.9.9';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'User self registration. Read the help to install.';
@@ -191,9 +191,22 @@ h3(tag#mem_self_password_reset_form). mem_self_password_reset_form
 
 p(tag-summary). This tag will allow a user to request a new password to be sent to their email address.
 
+p. Tag Attributes:
+
+* *form* -- The form containing the html form requesting username and email. If not specified, tag contents are used.
+* *form_mail* -- The form used for the confirmation email's message.
+* *subject* -- The confirmation email's subject.
+* *from* -- Email from header
+* *reply* -- Email reply to header.
+* *confirm_url* -- URL that links back to the password reset form (this tag).
+* *new_subject* -- The new password email's subject.
+* *new_form_mail* -- The form used for the new password email's message.
+* *check_name* -- Set to "0" if the form does not contain a username field.
+* *check_email* -- Set to "0" if the form does not contain an email field.
+
 p. Starter Template
 <code>
-<txp:mem_self_password_reset_form form_mail="reset_password_form">
+<txp:mem_self_password_reset_form form_mail="reset_password_form" new_form_mail="new_password_email">
 	<txp:mem_form_text name="name" label="Username:" />
 	<br />
 	<txp:mem_form_text name="email" label="Email Address:" />
@@ -201,6 +214,7 @@ p. Starter Template
 	<txp:mem_form_submit name="submit" label="Submit" />
 </txp:mem_self_password_reset_form>
 </code>
+
 
 h3(tag#mem_self_user_count). mem_self_user_count
 
@@ -902,15 +916,17 @@ if (txpinterface != 'admin' and !function_exists('txp_validate')) {
 
 function mem_self_password_reset_form($atts,$thing='')
 {
-	global $mem_self, $sitename, $production_status;
+	global $prefs, $mem_self, $sitename, $production_status;
 
 	extract(lAtts(array(
 		'form'		=> '',
-		'form_mail'	=> '',
+		'form_mail'	=> false,
 		'from'		=> $mem_self['admin_email'],
 		'reply'		=> '',
 		'subject'	=> "[$sitename] ".mem_self_gTxt('password_reset_confirmation_request'),
 		'confirm_url'	=> '',
+		'new_subject'	=> "[$sitename] ".gTxt('your_new_password'),
+		'new_form_mail'	=> false,
 		'check_name'	=> 1,
 		'check_email'	=> 1
 	),$atts,false));
@@ -931,11 +947,11 @@ function mem_self_password_reset_form($atts,$thing='')
 
 		$confirm = pack('H*', gps('mem_self_confirm'));
 		$name    = substr($confirm, 5);
-		$nonce   = safe_field('nonce', $user_table, "name = '".doSlash($name)."'");
+		$user = safe_row('*', $user_table, "name = '".doSlash($name)."'");
 
-		if ($nonce and $confirm === pack('H*', substr(md5($nonce), 0, 10)).$name)
+		if ($user['nonce'] and $confirm === pack('H*', substr(md5($user['nonce']), 0, 10)).$name)
 		{
-			$email = safe_field('email', $user_table, "name = '".doSlash($name)."'");
+			$email = $user['email'];
 			$new_pass = generate_password(10);
 			
 			$phpass = new PasswordHash(PASSWORD_COMPLEXITY, PASSWORD_PORTABILITY);
@@ -945,7 +961,39 @@ function mem_self_password_reset_form($atts,$thing='')
 	
 			if ($rs)
 			{
-				if (send_new_password($new_pass, $email, $name))
+				if (!empty($new_form_mail))
+				{
+					$message = parse_form($new_form_mail);
+
+					$vals = $user;
+					$vals['password'] = $new_pass;
+					$vals['sitename']	= $sitename;
+					$vals['admin_name']	= $prefs['mem_self_admin_name'];
+					$vals['admin_email']	= $mem_self['admin_email'];
+					$vals['siteurl']		= hu;
+					$vals['username']		= empty($vals['username']) ? $name : $vals['username'];
+					$vals['RealName']		= $RealName;
+					
+					foreach ($vals as $a=>$b) {
+						$message = str_ireplace('{'.$a.'}', $b, $message);
+						$message = str_ireplace('<txp:mem_'.$a.' />',$b,$message);
+					}
+					
+				}
+				else
+				{
+					$login_url = hu . 'textpattern/index.php';
+					
+					$message =<<<EOHTML
+Greetings {$name},
+
+Your password is: {$new_pass}
+You can sign in to your account at {$login_url}.
+EOHTML;
+
+				}
+				
+				if (mem_form_mail($from, $repy, $email, $new_subject, $message))
 					return mem_self_gTxt('password_sent_to', array('{email}'=>$email));
 				else
 					return mem_self_gTxt('mail_sorry');
@@ -1039,7 +1087,7 @@ function mem_self_password_reset_form_submit()
 			$vals['admin_name']	= $prefs['mem_self_admin_name'];
 			$vals['admin_email']	= $vals['from'];
 			//$vals['password']		= $pw;
-			$vals['confirm_url'] = $url;
+			$vals['confirm_url'] = $url . 'mem_self_confirm=' . $confirm;
 			$vals['siteurl']		= hu;
 			$vals['username']		= empty($vals['name']) ? $name : $vals['name'];
 			$vals['RealName']		= $RealName; 
@@ -1139,9 +1187,9 @@ function mem_self_password_form_submit()
 	}
 	
 	$phpass = new PasswordHash(PASSWORD_COMPLEXITY, PASSWORD_PORTABILITY);
-	$new_pass = doSlash($phpass->HashPassword($new_pass));
+	$hashed_pass = doSlash($phpass->HashPassword($new_pass));
 
-	$rs = safe_update( mem_get_user_table_name(), "pass = '{$new_pass}'", $where);
+	$rs = safe_update( mem_get_user_table_name(), "pass = '{$hashed_pass}'", $where);
 	
 	if (!$rs) {
 		return mem_form_error(mem_self_gTxt('password_change_failed'));
@@ -1158,13 +1206,13 @@ function mem_self_password_form_submit()
 
 		if (!empty($message))
 		{
-			$vals = $mem_form_values;
+			$vals = array_merge($mem_form_values, $mem_profile);
+			$vals['password']	= $new_pass;
 			$vals['sitename']	= $sitename;
 			$vals['admin_name']	= $prefs['mem_self_admin_name'];
 			$vals['admin_email']	= $vals['from'];
-			$vals['password']		= $mem_profile['new_pass'];
 			$vals['siteurl']		= hu;
-			$vals['username']		= $vals['name'];
+			$vals['username']		= empty($vals['username']) ? $vals['name'] : $vals['username'];
 			$vals['RealName']		= empty($vals['RealName']) ? $mem_profile['RealName'] : $vals['RealName'];
 			
 			foreach ($vals as $a=>$b) {
