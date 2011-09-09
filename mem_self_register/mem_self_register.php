@@ -289,7 +289,7 @@ if (@txpinterface == 'admin')
 	register_callback('mem_self_auto_enable', 'plugin_lifecycle.mem_self_register', 'installed');
 }
 
-/** Automatically install mem_wine* plugins when installed */
+/** Automatically enable plugin when installed */
 function mem_self_auto_enable($event, $step)
 {
 	$plugin = substr($event, strlen('plugin_lifecycle.'));
