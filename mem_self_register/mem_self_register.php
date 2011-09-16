@@ -1225,7 +1225,7 @@ function mem_self_password_form_submit()
 		return;
 	
 	$verify_old = array_key_exists('old_password', $mem_form_values);
-	$confirm = array_key_exists('password_confrim', $mem_form_values);
+	$confirm = array_key_exists('password_confirm', $mem_form_values);
 	
 	$new_pass = $mem_form_values['password'];
 	$old_pass = $mem_form_values['old_password'];
