@@ -386,7 +386,6 @@ function mem_self_gTxt($what,$args = array())
 
 global $event, $levels;
 
-
 if (txpinterface == 'public' or $event != 'admin') 
 {
 	if (file_exists( txpath.'/lib/txplib_admin.php' ))
@@ -396,26 +395,49 @@ if (txpinterface == 'public' or $event != 'admin')
 
 	require_once txpath.'/include/txp_admin.php';
 
+	function mem_self_get_groups()
+	{
+		// global var is deprecated as of v0.9.10
+		global $levels;
+
+		// always use core's list if it exists to allow other
+		// plugins to change it.
+		if (function_exists('get_groups'))
+		{
+			$levels = get_groups();
+		}
+		else if (empty($levels))
+		{
+			// copied from txp_admin.php
+			// if core doesn't provide, use legacy default
+			$levels = array(
+				0 => mem_self_gTxt('none'),
+				6 => mem_self_gTxt('designer'),
+				5 => mem_self_gTxt('freelancer'),
+				4 => mem_self_gTxt('staff_writer'),
+				3 => mem_self_gTxt('copy_editor'),
+				2 => mem_self_gTxt('managing_editor'),
+				1 => mem_self_gTxt('publisher')
+			);
+		}
+		
+		return $levels;
+	}
+
 	if (empty($levels))
 	{
-		// copied from txp_admin.php
-		$levels = array(
-			0 => mem_self_gTxt('none'),
-			6 => mem_self_gTxt('designer'),
-			5 => mem_self_gTxt('freelancer'),
-			4 => mem_self_gTxt('staff_writer'),
-			3 => mem_self_gTxt('copy_editor'),
-			2 => mem_self_gTxt('managing_editor'),
-			1 => mem_self_gTxt('publisher')
-		);
+		// populate global $levels to maintain backwards compatibility 
+		// with any plugins that are using it. 
+		// NOTE: $levels is deprecated as of v0.9.10 and will be removed soon
+		mem_self_get_groups();
 	}
 	
 //-------------------------------------------------------------
 	if (!function_exists('priv_levels')) {
 		function priv_levels($item, $var) {
-			global $levels;
+			$groups = mem_self_get_groups();
 	
-			return selectInput($item, $levels, $var);
+			return selectInput($item, $groups, $var);
 		}
 	}	
 }
@@ -1473,19 +1495,29 @@ function mem_self_map_tag($atts,$name,$default) {
 function mem_self_user_count($atts)
 {
 	global $mem_self;
+
+	$group_levels = mem_self_get_groups();
 	
 	extract(lAtts(array(
-		'user_levels'	=> '0,1,2,3,4,5,6',
+		'user_levels'	=> array_keys($group_levels),
 		'wraptag'	=> '',
 		'class'		=> ''
 	),$atts));
 
-	if (!empty($user_levels) || $user_levels=='0')
+	if (is_array($user_levels))
+	{
+		// no-op
+	}
+	else if (!empty($user_levels) || $user_levels=='0')
+	{
 		$user_levels = doSlash(explode(',',$user_levels));
+	}
 	else
+	{
 		$user_levels = array($mem_self['new_user_priv']);
+	}
 
-	$levels = join(',',$user_levels);
+	$levels = implode(',',$user_levels);
 	$count = safe_field('COUNT(*)', mem_get_user_table_name(), "privs IN ({$levels})");
 	
 	return doTag($count,$wraptag,$class);
