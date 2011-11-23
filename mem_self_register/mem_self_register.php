@@ -17,7 +17,7 @@ $plugin['name'] = 'mem_self_register';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 0;
 
-$plugin['version'] = '0.9.9';
+$plugin['version'] = '0.9.10';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'User self registration. Read the help to install.';
@@ -1058,7 +1058,7 @@ EOHTML;
 
 				}
 				
-				if (mem_form_mail($from, $repy, $email, $new_subject, $message))
+				if (mem_form_mail($from, $reply, $email, $new_subject, $message))
 					return mem_self_gTxt('password_sent_to', array('{email}'=>$email));
 				else
 					return mem_self_gTxt('mail_sorry');
