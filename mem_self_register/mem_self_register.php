@@ -17,7 +17,7 @@ $plugin['name'] = 'mem_self_register';
 // 1 = Plugin help is in raw HTML.  Not recommended.
 # $plugin['allow_html_help'] = 0;
 
-$plugin['version'] = '0.9.10';
+$plugin['version'] = '0.9.11';
 $plugin['author'] = 'Michael Manfre';
 $plugin['author_uri'] = 'http://manfre.net/';
 $plugin['description'] = 'User self registration. Read the help to install.';
@@ -773,8 +773,8 @@ function mem_self_register_form_submit()
 	}
 	else
 	{
-		$mem_profile['RealName'] = $name = $mem_form_values['RealName'];
-		$name_parts = explode(' ', $name, 2);
+		$mem_profile['RealName'] = $full_name = $mem_form_values['RealName'];
+		$name_parts = explode(' ', $full_name, 2);
 		$mem_profile['first_name'] = @$name_parts[0];
 		$mem_profile['last_name'] = @$name_parts[1];
 	}
@@ -809,7 +809,7 @@ function mem_self_register_form_submit()
 		"privs    = '".doSlash($new_user_priv)."',
 		 name     = '".doSlash($username)."',
 		 email    = '".doSlash($email)."',
-		 RealName = '".doSlash($name)."',
+		 RealName = '".doSlash($full_name)."',
 		 pass     =  '" . doSlash($phpass->HashPassword($pw)) . "',
 		 nonce    = '".doSlash($nonce)."'" . $xtra
 	);
