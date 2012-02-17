@@ -742,7 +742,7 @@ function mem_article_presenter($type,$data)
  */
 function mem_article_approver($type, $data)
 {
-	global $txpcfg, $txp_user, $prefs;
+	global $txp_user, $prefs;
 
 	if (!is_array($data))
 	{
@@ -1297,7 +1297,7 @@ function mem_if_article_delete_pending($atts, $thing='')
 /** custom_article that filters based upon current user (txp or ign) */
 function mem_custom_user_article_list($atts, $thing='')
 {
-	global $pretext, $prefs, $txpcfg,$txp_user,$ign_user;
+	global $pretext, $prefs, $txp_user,$ign_user;
 	
 	// need url info and txp prefs
 	extract($pretext);
