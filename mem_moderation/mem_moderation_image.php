@@ -618,18 +618,26 @@ function modimg_get_image_dimensions($thumbnail=false)
 	} else {
 		$dim = @$prefs['mem_mod_img_size_full'];
 	
-		$w = 640;
-		$h = 480;
+		if ($dim == '0x0')
+		{
+			$w = false;
+			$h = false;
+		}
+		else
+		{
+			$w = 640;
+			$h = 480;
+		}
 	}	
 	
 	if ($dim)
 	{
 		$dim = explode('x',$dim);
 		
-		if (count($dim) == 2)
+		if (count($dim) == 2 && is_numeric($dim[0]) && is_numeric($dim[1]))
 		{
-			$w = $dim[0];
-			$h = $dim[1];
+			$w = intval($dim[0]);
+			$h = intval($dim[1]);
 		}
 	}
 	
@@ -748,7 +756,7 @@ function mem_image_save($step)
 			{
 				list($width,$height) = modimg_get_image_dimensions();
 	
-				if (class_exists('wet_thumb'))
+				if (class_exists('wet_thumb') && $width !== false && $height !== false)
 				{
 					$sharpen = (@$prefs['mem_mod_img_sharpen'] == 1 || @$prefs['mem_mod_img_sharpen'] === true);
 					
