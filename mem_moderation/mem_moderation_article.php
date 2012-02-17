@@ -788,6 +788,7 @@ function mem_article_approver($type, $data)
 		$incoming['Excerpt'] = $incoming['excerpt'];
 		$incoming['publish_now'] = 1;
 
+		$use_textile = 1; // this does nothing see #32
 		$incoming = textile_main_fields($incoming, $use_textile);
 
 		extract(doSlash($incoming));
@@ -925,6 +926,7 @@ function mem_article_approver($type, $data)
 			return 'Access denied.';
 		}
 
+		$use_textile = 1; // this does nothing see #32
 		$incoming = textile_main_fields($incoming, $use_textile);
 
 		extract(doSlash($incoming));
